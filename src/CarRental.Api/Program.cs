@@ -108,7 +108,11 @@ app.MapPost("/oauth/token", (TokenRequest request) =>
 {
     if (!DemoClients.TryGetValue(request.ClientId, out var client) || client.ClientSecret != request.ClientSecret)
     {
-        return Results.Unauthorized();
+        return Results.Json(
+            new ErrorResponse(
+                ErrorCodes.AuthenticationInvalidCredentials,
+                Program.GetErrorMessage(ErrorCodes.AuthenticationInvalidCredentials)),
+            statusCode: StatusCodes.Status401Unauthorized);
     }
 
     var now = DateTime.UtcNow;
