@@ -80,8 +80,6 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-// This wraps authentication, tenant resolution, authorization and endpoint execution
-// so failures produced before an endpoint is reached are logged as well.
 app.Use(async (context, next) =>
 {
     await next();
@@ -134,6 +132,10 @@ app.MapPost("/oauth/token", (TokenRequest request) =>
 
 app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest request, RentalService service, CancellationToken ct) =>
 {
+    var validationError = ValidatePickupRequest(request);
+    if (validationError is not null)
+        return Results.BadRequest(new ErrorResponse(ErrorCodes.PickupInvalidInput, Program.GetErrorMessage(ErrorCodes.PickupInvalidInput)));
+
     try
     {
         var rental = await service.RegisterPickupAsync(
@@ -176,6 +178,10 @@ app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest request, RentalS
 
 app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, RegisterReturnRequest request, RentalService service, CancellationToken ct) =>
 {
+    var validationError = ValidateReturnRequest(bookingNumber, request);
+    if (validationError is not null)
+        return Results.BadRequest(new ErrorResponse(ErrorCodes.ReturnInvalidInput, Program.GetErrorMessage(ErrorCodes.ReturnInvalidInput)));
+
     try
     {
         var price = await service.RegisterReturnAsync(
@@ -230,14 +236,37 @@ public partial class Program
         _ => throw new ArgumentOutOfRangeException(nameof(category), category, "Unknown car category.")
     };
 
+    private static string? ValidatePickupRequest(RegisterPickupRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.BookingNumber) ||
+            string.IsNullOrWhiteSpace(request.RegistrationNumber) ||
+            string.IsNullOrWhiteSpace(request.CustomerIdentifier) ||
+            !Enum.IsDefined(request.Category) ||
+            request.PickupTime == default ||
+            request.PickupOdometer < 0)
+            return "invalid";
+
+        return null;
+    }
+
+    private static string? ValidateReturnRequest(string bookingNumber, RegisterReturnRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(bookingNumber) ||
+            request.ReturnTime == default ||
+            request.ReturnOdometer < 0 ||
+            request.BaseDailyPrice < 0 ||
+            request.BaseKmPrice < 0)
+            return "invalid";
+
+        return null;
+    }
+
     private static readonly IReadOnlyDictionary<string, DemoClient> DemoClients = new Dictionary<string, DemoClient>(StringComparer.Ordinal)
     {
         ["tenant-a"] = new DemoClient("secret-a"),
         ["tenant-b"] = new DemoClient("secret-b")
     };
 
-    // Customer-facing text is intentionally separate from the stable error codes.
-    // These messages can be changed without changing the integration contract.
     private static readonly IReadOnlyDictionary<string, string> ErrorMessages = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         [ErrorCodes.AuthenticationInvalidCredentials] = "The supplied credentials were invalid.",
