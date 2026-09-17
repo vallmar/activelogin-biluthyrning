@@ -48,7 +48,7 @@ This file records decisions that explain why the project is structured the way i
 
 **Why:** A service that cannot explain failures is difficult to operate and debug, even when its business logic is correct.
 
-**Consequence:** The service uses the built-in `ILogger` abstraction. Unexpected failures are logged at Error level, while blocked cross-tenant access is logged as a structured Warning. No logging framework or telemetry platform is required yet.
+**Consequence:** The service uses the built-in `ILogger` abstraction. Unexpected failures are logged at Error level, rejected HTTP requests are logged at Warning level, and blocked cross-tenant access is logged as a structured Warning. The current implementation writes to a daily local file rather than introducing a third-party logging stack.
 
 ## ADR-007: Tenant identity comes from validated authentication context
 
@@ -73,3 +73,11 @@ This file records decisions that explain why the project is structured the way i
 **Why:** The attempted access is operationally important and may indicate a client bug, misconfiguration, or malicious behaviour. At the same time, returning `404` prevents the API from disclosing whether another tenant owns the booking.
 
 **Consequence:** The repository has a narrowly scoped ownership lookup used only after a tenant-scoped lookup misses. Normal tenant reads remain tenant-scoped.
+
+## ADR-010: Use a simple daily file logger for the showcase
+
+**Decision:** For the current project, `ILogger` writes application logs to `.log/`, with one file per local calendar day.
+
+**Why:** The project needs observable failures without adding Serilog, OpenTelemetry, Application Insights, or another external logging platform. A daily file is enough to inspect local behaviour and demonstrate that operational logging exists.
+
+**Consequence:** The logger is intentionally small and not a production logging solution. The `.log/` directory is ignored by source control. A production deployment could replace the provider while keeping the `ILogger` abstraction unchanged.
