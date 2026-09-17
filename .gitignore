@@ -13,6 +13,7 @@
 
 # Build logs and test results
 *.log
+.log/
 TestResults/
 coverage/
 *.trx
