@@ -196,6 +196,8 @@ The baseline answers:
 - If unexpected, is there enough context in the logs to diagnose it?
 - Did an authenticated tenant attempt to access data owned by another tenant?
 
-The service uses the built-in `ILogger` abstraction. Unexpected exceptions are logged at Error level. Blocked cross-tenant access is logged at Warning level with tenant and booking context. Secrets and bearer tokens are never logged.
+The service uses the built-in `ILogger` abstraction with a deliberately simple file provider for the current project. Application logs are written under `.log/` in the API content root, with one file per local calendar day named `car-rental-yyyy-MM-dd.log`.
 
-More advanced telemetry should be introduced only when there is a concrete operational need.
+Unexpected exceptions are logged at Error level with the exception. Rejected HTTP requests (`400`-`499`) are logged at Warning level with status, tenant (or anonymous), method and path. Blocked cross-tenant access is logged at Warning level with tenant and booking context. Secrets and bearer tokens are never logged.
+
+The `.log/` directory is local runtime state and is excluded from source control. More advanced telemetry should be introduced only when there is a concrete operational need.
