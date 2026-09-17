@@ -78,10 +78,8 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-app.UseAuthentication();
-app.UseMiddleware<TenantContextMiddleware>();
-app.UseAuthorization();
-
+// This wraps authentication, tenant resolution, authorization and endpoint execution
+// so failures produced before an endpoint is reached are logged as well.
 app.Use(async (context, next) =>
 {
     await next();
@@ -99,6 +97,10 @@ app.Use(async (context, next) =>
             context.Request.Path);
     }
 });
+
+app.UseAuthentication();
+app.UseMiddleware<TenantContextMiddleware>();
+app.UseAuthorization();
 
 app.MapPost("/oauth/token", (TokenRequest request) =>
 {
