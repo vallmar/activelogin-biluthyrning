@@ -47,6 +47,40 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     [Fact]
+    public async Task Rejected_unauthorized_request_is_logged_as_warning()
+    {
+        var logSink = new TestLogSink();
+        var client = CreateLoggingClient(logSink);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/rentals/pickup")
+        {
+            Content = JsonContent.Create(new
+            {
+                bookingNumber = "UNAUTHORIZED-TEST",
+                registrationNumber = "ABC123",
+                customerIdentifier = "customer-a",
+                category = "SmallCar",
+                pickupTime = "2026-09-15T10:00:00Z",
+                pickupOdometer = 10000
+            })
+        };
+
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<ErrorResponse>(TestContext.Current.CancellationToken);
+        Assert.NotNull(error);
+        Assert.Equal("A valid tenant access token is required.", error!.Error);
+
+        Assert.Contains(
+            logSink.Entries,
+            entry => entry.LogLevel == LogLevel.Warning
+                      && entry.Message.Contains("HTTP request failed with 401")
+                      && entry.Message.Contains("Tenant anonymous")
+                      && entry.Message.Contains("POST /api/rentals/pickup"));
+    }
+
+    [Fact]
     public async Task Cross_tenant_access_is_blocked_and_logged_as_warning()
     {
         var logSink = new TestLogSink();
