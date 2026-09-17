@@ -34,7 +34,7 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         var response = await client.PostAsync("/api/rentals/pickup", content, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        Assert.True(response.Headers.WwwAuthenticate.Any(h => h.Scheme.Equals("Bearer", StringComparison.OrdinalIgnoreCase)));
+        Assert.Contains(response.Headers.WwwAuthenticate, h => h.Scheme.Equals("Bearer", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
