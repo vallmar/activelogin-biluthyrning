@@ -74,7 +74,9 @@ app.UseExceptionHandler(errorApp =>
         }
 
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        await Results.Json(new ErrorResponse("An unexpected error occurred.")).ExecuteAsync(context);
+        await Results.Json(new ErrorResponse(
+            ErrorCodes.InternalError,
+            ErrorMessages[ErrorCodes.InternalError])).ExecuteAsync(context);
     });
 });
 
@@ -148,11 +150,21 @@ app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest request, RentalS
 
         return Results.Created($"/api/rentals/{rental.BookingNumber}", response);
     }
-    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+    catch (InvalidOperationException ex)
+    {
+        var logger = app.Logger;
+        logger.LogWarning(ex, "Pickup request rejected for {HttpMethod} {Path}", "POST", "/api/rentals/pickup");
+        return Results.BadRequest(new ErrorResponse(
+            ErrorCodes.PickupBookingAlreadyExists,
+            ErrorMessages[ErrorCodes.PickupBookingAlreadyExists]));
+    }
+    catch (ArgumentException ex)
     {
         var logger = app.Logger;
         logger.LogWarning(ex, "Invalid pickup request input for {HttpMethod} {Path}", "POST", "/api/rentals/pickup");
-        return Results.BadRequest(new ErrorResponse("The provided input was invalid."));
+        return Results.BadRequest(new ErrorResponse(
+            ErrorCodes.PickupInvalidInput,
+            ErrorMessages[ErrorCodes.PickupInvalidInput]));
     }
 }).RequireAuthorization();
 
@@ -172,14 +184,18 @@ app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, 
     catch (KeyNotFoundException ex)
     {
         var logger = app.Logger;
-        logger.LogWarning(ex, "Invalid return request input for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
-        return Results.BadRequest(new ErrorResponse("The provided input was invalid."));
+        logger.LogWarning(ex, "Rental not found for return request {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
+        return Results.NotFound(new ErrorResponse(
+            ErrorCodes.ReturnRentalNotFound,
+            ErrorMessages[ErrorCodes.ReturnRentalNotFound]));
     }
     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
     {
         var logger = app.Logger;
         logger.LogWarning(ex, "Invalid return request input for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
-        return Results.BadRequest(new ErrorResponse("The provided input was invalid."));
+        return Results.BadRequest(new ErrorResponse(
+            ErrorCodes.ReturnInvalidInput,
+            ErrorMessages[ErrorCodes.ReturnInvalidInput]));
     }
 }).RequireAuthorization();
 
@@ -212,6 +228,19 @@ public partial class Program
     {
         ["tenant-a"] = new DemoClient("secret-a"),
         ["tenant-b"] = new DemoClient("secret-b")
+    };
+
+    // Customer-facing text is intentionally separate from the stable error codes.
+    // These messages can be changed without changing the integration contract.
+    private static readonly IReadOnlyDictionary<string, string> ErrorMessages = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        [ErrorCodes.AuthenticationInvalidCredentials] = "The supplied credentials were invalid.",
+        [ErrorCodes.AuthenticationRequired] = "A valid tenant access token is required.",
+        [ErrorCodes.PickupInvalidInput] = "The provided input was invalid.",
+        [ErrorCodes.PickupBookingAlreadyExists] = "The provided input could not be processed.",
+        [ErrorCodes.ReturnInvalidInput] = "The provided input was invalid.",
+        [ErrorCodes.ReturnRentalNotFound] = "The provided input could not be processed.",
+        [ErrorCodes.InternalError] = "An unexpected error occurred."
     };
 }
 
@@ -255,6 +284,8 @@ file sealed class TenantContextMiddleware(RequestDelegate next)
     {
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         context.Response.Headers.WWWAuthenticate = "Bearer";
-        await Results.Json(new ErrorResponse("A valid tenant access token is required.")).ExecuteAsync(context);
+        await Results.Json(new ErrorResponse(
+            ErrorCodes.AuthenticationRequired,
+            "A valid tenant access token is required.")).ExecuteAsync(context);
     }
 }
