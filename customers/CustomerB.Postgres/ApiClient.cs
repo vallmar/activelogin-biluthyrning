@@ -49,7 +49,8 @@ public sealed class RentalApiClient
         if (!response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadFromJsonAsync<ErrorResponse>(CustomerJsonOptions, cancellationToken);
-            throw new InvalidOperationException(error?.Error ?? "The rental service could not process the request.");
+            throw new InvalidOperationException(
+                $"Rental API error {error?.ErrorCode ?? "UNKNOWN_ERROR"}: {error?.ErrorMessage ?? "The rental service could not process the request."}");
         }
 
         return await response.Content.ReadFromJsonAsync<RegisterPickupResponse>(CustomerJsonOptions, cancellationToken)
@@ -64,7 +65,11 @@ public sealed class RentalApiClient
             cancellationToken);
 
         if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException("The authentication service rejected the customer credentials.");
+        {
+            var error = await response.Content.ReadFromJsonAsync<ErrorResponse>(CustomerJsonOptions, cancellationToken);
+            throw new InvalidOperationException(
+                $"Rental API authentication error {error?.ErrorCode ?? "UNKNOWN_ERROR"}: {error?.ErrorMessage ?? "The authentication service rejected the customer credentials."}");
+        }
 
         var token = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken: cancellationToken)
             ?? throw new InvalidOperationException("The authentication service returned an empty token response.");
