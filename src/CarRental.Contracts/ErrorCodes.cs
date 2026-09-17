@@ -6,6 +6,7 @@ namespace CarRental.Contracts;
 /// </summary>
 public static class ErrorCodes
 {
+    public const string AuthenticationInvalidInput = "AUTH_INVALID_INPUT";
     public const string AuthenticationInvalidCredentials = "AUTH_INVALID_CREDENTIALS";
     public const string AuthenticationRequired = "AUTH_REQUIRED";
     public const string PickupInvalidInput = "PICKUP_INVALID_INPUT";
