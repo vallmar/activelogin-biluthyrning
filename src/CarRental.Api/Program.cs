@@ -49,7 +49,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IRentalRepository, InMemoryRentalRepository>();
-builder.Services.AddSingleton<PriceCalculator>();
 builder.Services.AddScoped<ApiTenantContext>();
 builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<ApiTenantContext>());
 builder.Services.AddScoped<RentalService>();
@@ -104,6 +103,14 @@ app.UseAuthorization();
 
 app.MapPost("/oauth/token", (TokenRequest request) =>
 {
+    if (string.IsNullOrWhiteSpace(request.ClientId) ||
+        string.IsNullOrWhiteSpace(request.ClientSecret))
+    {
+        return Results.BadRequest(new ErrorResponse(
+            ErrorCodes.AuthenticationInvalidInput,
+            Program.GetErrorMessage(ErrorCodes.AuthenticationInvalidInput)));
+    }
+
     if (!DemoClients.TryGetValue(request.ClientId, out var client) || client.ClientSecret != request.ClientSecret)
     {
         return Results.Json(
@@ -132,9 +139,12 @@ app.MapPost("/oauth/token", (TokenRequest request) =>
 
 app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest request, RentalService service, CancellationToken ct) =>
 {
-    var validationError = ValidatePickupRequest(request);
-    if (validationError is not null)
-        return Results.BadRequest(new ErrorResponse(ErrorCodes.PickupInvalidInput, Program.GetErrorMessage(ErrorCodes.PickupInvalidInput)));
+    if (!IsValidPickupRequest(request))
+    {
+        return Results.BadRequest(new ErrorResponse(
+            ErrorCodes.PickupInvalidInput,
+            Program.GetErrorMessage(ErrorCodes.PickupInvalidInput)));
+    }
 
     try
     {
@@ -178,9 +188,12 @@ app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest request, RentalS
 
 app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, RegisterReturnRequest request, RentalService service, CancellationToken ct) =>
 {
-    var validationError = ValidateReturnRequest(bookingNumber, request);
-    if (validationError is not null)
-        return Results.BadRequest(new ErrorResponse(ErrorCodes.ReturnInvalidInput, Program.GetErrorMessage(ErrorCodes.ReturnInvalidInput)));
+    if (!IsValidReturnRequest(bookingNumber, request))
+    {
+        return Results.BadRequest(new ErrorResponse(
+            ErrorCodes.ReturnInvalidInput,
+            Program.GetErrorMessage(ErrorCodes.ReturnInvalidInput)));
+    }
 
     try
     {
@@ -231,34 +244,28 @@ public partial class Program
     static ContractCarCategory ToContractCategory(CarCategory category) => category switch
     {
         CarCategory.SmallCar => ContractCarCategory.SmallCar,
-        CarCategory.Combi => ContractCarCategory.Combi,
-        CarCategory.Truck => ContractCarCategory.Truck,
+        ContractCarCategory.Combi => ContractCarCategory.Combi,
+        ContractCarCategory.Truck => ContractCarCategory.Truck,
         _ => throw new ArgumentOutOfRangeException(nameof(category), category, "Unknown car category.")
     };
 
-    private static string? ValidatePickupRequest(RegisterPickupRequest request)
+    private static bool IsValidPickupRequest(RegisterPickupRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.BookingNumber) ||
-            string.IsNullOrWhiteSpace(request.RegistrationNumber) ||
-            string.IsNullOrWhiteSpace(request.CustomerIdentifier) ||
-            !Enum.IsDefined(request.Category) ||
-            request.PickupTime == default ||
-            request.PickupOdometer < 0)
-            return "invalid";
-
-        return null;
+        return !string.IsNullOrWhiteSpace(request.BookingNumber) &&
+               !string.IsNullOrWhiteSpace(request.RegistrationNumber) &&
+               !string.IsNullOrWhiteSpace(request.CustomerIdentifier) &&
+               Enum.IsDefined(request.Category) &&
+               request.PickupTime != default &&
+               request.PickupOdometer >= 0;
     }
 
-    private static string? ValidateReturnRequest(string bookingNumber, RegisterReturnRequest request)
+    private static bool IsValidReturnRequest(string bookingNumber, RegisterReturnRequest request)
     {
-        if (string.IsNullOrWhiteSpace(bookingNumber) ||
-            request.ReturnTime == default ||
-            request.ReturnOdometer < 0 ||
-            request.BaseDailyPrice < 0 ||
-            request.BaseKmPrice < 0)
-            return "invalid";
-
-        return null;
+        return !string.IsNullOrWhiteSpace(bookingNumber) &&
+               request.ReturnTime != default &&
+               request.ReturnOdometer >= 0 &&
+               request.BaseDailyPrice >= 0 &&
+               request.BaseKmPrice >= 0;
     }
 
     private static readonly IReadOnlyDictionary<string, DemoClient> DemoClients = new Dictionary<string, DemoClient>(StringComparer.Ordinal)
@@ -269,6 +276,7 @@ public partial class Program
 
     private static readonly IReadOnlyDictionary<string, string> ErrorMessages = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        [ErrorCodes.AuthenticationInvalidInput] = "The provided input was invalid.",
         [ErrorCodes.AuthenticationInvalidCredentials] = "The supplied credentials were invalid.",
         [ErrorCodes.AuthenticationRequired] = "A valid tenant access token is required.",
         [ErrorCodes.PickupInvalidInput] = "The provided input was invalid.",
