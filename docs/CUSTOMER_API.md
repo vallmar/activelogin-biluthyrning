@@ -22,7 +22,7 @@ Content-Type: application/json
 }
 ```
 
-The response is:
+Successful response:
 
 ```json
 {
@@ -42,8 +42,6 @@ The API validates the JWT signature, issuer, audience and lifetime. The tenant i
 
 The local `/oauth/token` endpoint exists only to make this repository self-contained. It is a showcase token issuer, not a production identity provider. A real deployment would use an OAuth 2.0/OIDC identity provider and the API would validate tokens issued by that provider.
 
-Invalid or missing bearer tokens result in `401 Unauthorized` with `WWW-Authenticate: Bearer`.
-
 ## Tenant isolation
 
 Tenant isolation is part of the application behaviour:
@@ -58,41 +56,49 @@ The external response deliberately does not reveal the owning tenant.
 
 ## Response and error handling
 
-The most important rule for a customer integration is:
-
-> **Check the HTTP status code first. Then inspect the response body.**
-
-Business/application errors use this JSON shape:
+The customer API uses a single error response contract for application-generated errors:
 
 ```json
 {
-  "error": "Booking number is already in use."
+  "errorCode": "PICKUP_INVALID_INPUT",
+  "errorMessage": "The provided input was invalid."
 }
 ```
 
-The `error` value is intended to be understandable to a human. Customers should not use the English error message as a machine-readable error code.
+**`errorCode` is the stable machine-readable value. `errorMessage` is human-readable text and may be changed by the API owner without changing the code.** Customer integrations must never parse or branch on `errorMessage`.
 
-For documented API errors, the following response shape is used:
+Always check the HTTP status code first, then inspect `errorCode` when the response is an error.
+
+The currently documented codes are maintained in `src/CarRental.Contracts/ErrorCodes.cs` and described in [`docs/ERROR_CODES.md`](ERROR_CODES.md).
+
+### Error-code contract
+
+| Error code | HTTP status | Meaning |
+|---|---:|---|
+| `AUTH_INVALID_CREDENTIALS` | `401` | The supplied token-endpoint credentials were not accepted. |
+| `AUTH_REQUIRED` | `401` | A valid tenant access token is required. |
+| `PICKUP_INVALID_INPUT` | `400` | The pickup request input was invalid. |
+| `PICKUP_BOOKING_ALREADY_EXISTS` | `400` | The pickup could not be processed because the booking already exists. |
+| `RETURN_INVALID_INPUT` | `400` | The return request input or business state was invalid. |
+| `RETURN_RENTAL_NOT_FOUND` | `404` | The rental could not be found for the authenticated tenant. |
+| `INTERNAL_ERROR` | `500` | An unexpected server-side error occurred. |
+
+Error messages intentionally do not expose the expected parameter values or underlying implementation details.
+
+### Unexpected server-side failures
+
+Unexpected server-side failures return `500 Internal Server Error` using the same error contract:
 
 ```json
 {
-  "error": "<message>"
-}
-```
-
-Customers should handle the HTTP status code first and use the `error` message for diagnostics or user-facing feedback where appropriate.
-
-Malformed JSON or framework-level failures may have a different response shape because they can be rejected before the application's API handlers run. Customers should therefore handle the HTTP status code first and retain the response body for diagnostics.
-
-Unexpected server-side failures return `500 Internal Server Error` with the stable response:
-
-```json
-{
-  "error": "An unexpected error occurred."
+  "errorCode": "INTERNAL_ERROR",
+  "errorMessage": "An unexpected error occurred."
 }
 ```
 
 The server does not expose the underlying exception, stack trace, or other internal implementation details in this response. The underlying error is logged internally for operators.
+
+Framework-level failures such as malformed JSON can be rejected before an application endpoint handler runs. Consumers should therefore always use the HTTP status code as the first level of error handling and should not assume that every framework-generated failure has an application error code.
 
 ## POST /oauth/token
 
@@ -128,7 +134,14 @@ HTTP `200 OK`.
 
 ### Failure
 
-HTTP `401 Unauthorized` when the client credentials are not accepted.
+HTTP `401 Unauthorized` when the client credentials are not accepted:
+
+```json
+{
+  "errorCode": "AUTH_INVALID_CREDENTIALS",
+  "errorMessage": "The supplied credentials were invalid."
+}
+```
 
 ## POST /api/rentals/pickup
 
@@ -188,27 +201,30 @@ The response also contains a `Location` header pointing to `/api/rentals/{bookin
 - `401 Unauthorized` — missing or invalid access token.
 - `500 Internal Server Error` — unexpected server-side failure.
 
-Typical `400` business error:
+Example duplicate-booking response:
 
 ```json
 {
-  "error": "Booking number is already in use."
+  "errorCode": "PICKUP_BOOKING_ALREADY_EXISTS",
+  "errorMessage": "The provided input could not be processed."
 }
 ```
 
-Typical `401` response:
+Example invalid-input response:
 
 ```json
 {
-  "error": "A valid tenant access token is required."
+  "errorCode": "PICKUP_INVALID_INPUT",
+  "errorMessage": "The provided input was invalid."
 }
 ```
 
-The `500` response is:
+Example unauthorized response:
 
 ```json
 {
-  "error": "An unexpected error occurred."
+  "errorCode": "AUTH_REQUIRED",
+  "errorMessage": "A valid tenant access token is required."
 }
 ```
 
@@ -261,36 +277,32 @@ HTTP `200 OK`.
 - `404 Not Found` — booking does not exist for the authenticated tenant, including when another tenant owns it.
 - `500 Internal Server Error` — unexpected server-side failure.
 
-Example `401`:
+Example invalid return response:
 
 ```json
 {
-  "error": "A valid tenant access token is required."
+  "errorCode": "RETURN_INVALID_INPUT",
+  "errorMessage": "The provided input was invalid."
 }
 ```
 
-Example `404`:
+Example not-found response:
 
 ```json
 {
-  "error": "Rental 'TEST-001' was not found."
+  "errorCode": "RETURN_RENTAL_NOT_FOUND",
+  "errorMessage": "The provided input could not be processed."
 }
 ```
 
 The `404` response is intentionally identical whether the booking does not exist or belongs to another tenant.
 
-Typical `400` messages include:
-
-- `Rental has already been returned.`
-- `Return time cannot be before pickup time.`
-- an argument error for an invalid odometer value;
-- an argument error for invalid pricing.
-
-The `500` response is:
+Example unauthorized response:
 
 ```json
 {
-  "error": "An unexpected error occurred."
+  "errorCode": "AUTH_REQUIRED",
+  "errorMessage": "A valid tenant access token is required."
 }
 ```
 
@@ -315,9 +327,35 @@ Customer application
        +--> tenant-scoped rental operation
        |
        +--> 2xx / 4xx / 5xx response
+               |
+               +--> HTTP status
+               +--> errorCode (stable)
+               +--> errorMessage (editable text)
 ```
 
-The customer application owns its own persistence and UI. It only depends on the HTTP API and its documented JSON contracts.
+Customer applications should branch on `errorCode`, for example:
+
+```csharp
+if (!response.IsSuccessStatusCode)
+{
+    var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+
+    switch (error?.ErrorCode)
+    {
+        case ErrorCodes.PickupInvalidInput:
+            // Handle invalid pickup input.
+            break;
+        case ErrorCodes.PickupBookingAlreadyExists:
+            // Handle duplicate booking.
+            break;
+        default:
+            // Handle other documented or unknown errors.
+            break;
+    }
+}
+```
+
+Unknown future error codes must be handled safely as an unknown error. Customers must not depend on the exact set of codes never changing.
 
 ## Security and logging
 
@@ -329,10 +367,10 @@ The security log contains internal diagnostic context such as the requesting ten
 
 ## Contract summary
 
-| Endpoint | Success | Errors |
+| Endpoint | Success | Error codes |
 |---|---:|---|
-| `POST /oauth/token` | `200 OK` | `401 Unauthorized` |
-| `POST /api/rentals/pickup` | `201 Created` | `400 Bad Request`, `401 Unauthorized`, `500 Internal Server Error` |
-| `POST /api/rentals/{bookingNumber}/return` | `200 OK` | `400 Bad Request`, `401 Unauthorized`, `404 Not Found`, `500 Internal Server Error` |
+| `POST /oauth/token` | `200 OK` | `AUTH_INVALID_CREDENTIALS` |
+| `POST /api/rentals/pickup` | `201 Created` | `PICKUP_INVALID_INPUT`, `PICKUP_BOOKING_ALREADY_EXISTS`, `AUTH_REQUIRED`, `INTERNAL_ERROR` |
+| `POST /api/rentals/{bookingNumber}/return` | `200 OK` | `RETURN_INVALID_INPUT`, `RETURN_RENTAL_NOT_FOUND`, `AUTH_REQUIRED`, `INTERNAL_ERROR` |
 
-The public rental request/response types are defined in `src/CarRental.Contracts/RentalContracts.cs`. Tenant identity and JWT details are authentication concerns and are not part of those JSON rental DTOs.
+The stable error-code definitions are in `src/CarRental.Contracts/ErrorCodes.cs`. The customer-facing message text is owned by the API implementation and can change independently of the codes.
