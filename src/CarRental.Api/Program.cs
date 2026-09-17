@@ -24,6 +24,9 @@ if (Encoding.UTF8.GetByteCount(jwtSigningKey) < 32)
 
 var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey));
 
+builder.Logging.AddProvider(new DailyFileLoggerProvider(
+    Path.Combine(builder.Environment.ContentRootPath, ".log")));
+
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -78,6 +81,24 @@ app.UseExceptionHandler(errorApp =>
 app.UseAuthentication();
 app.UseMiddleware<TenantContextMiddleware>();
 app.UseAuthorization();
+
+app.Use(async (context, next) =>
+{
+    await next();
+
+    if (context.Response.StatusCode is >= 400 and < 500)
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        var tenantId = context.User.FindFirst("client_id")?.Value ?? "anonymous";
+
+        logger.LogWarning(
+            "HTTP request failed with {StatusCode}. Tenant {TenantId}, {HttpMethod} {Path}",
+            context.Response.StatusCode,
+            tenantId,
+            context.Request.Method,
+            context.Request.Path);
+    }
+});
 
 app.MapPost("/oauth/token", (TokenRequest request) =>
 {
