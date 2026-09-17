@@ -150,7 +150,9 @@ app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest request, RentalS
     }
     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
     {
-        return Results.BadRequest(new ErrorResponse(ex.Message));
+        var logger = app.Logger;
+        logger.LogWarning(ex, "Invalid pickup request input for {HttpMethod} {Path}", "POST", "/api/rentals/pickup");
+        return Results.BadRequest(new ErrorResponse("The provided input was invalid."));
     }
 }).RequireAuthorization();
 
@@ -169,11 +171,15 @@ app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, 
     }
     catch (KeyNotFoundException ex)
     {
-        return Results.NotFound(new ErrorResponse(ex.Message));
+        var logger = app.Logger;
+        logger.LogWarning(ex, "Invalid return request input for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
+        return Results.BadRequest(new ErrorResponse("The provided input was invalid."));
     }
     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
     {
-        return Results.BadRequest(new ErrorResponse(ex.Message));
+        var logger = app.Logger;
+        logger.LogWarning(ex, "Invalid return request input for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
+        return Results.BadRequest(new ErrorResponse("The provided input was invalid."));
     }
 }).RequireAuthorization();
 
