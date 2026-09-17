@@ -76,7 +76,7 @@ app.UseExceptionHandler(errorApp =>
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         await Results.Json(new ErrorResponse(
             ErrorCodes.InternalError,
-            ErrorMessages[ErrorCodes.InternalError])).ExecuteAsync(context);
+            Program.GetErrorMessage(ErrorCodes.InternalError))).ExecuteAsync(context);
     });
 });
 
@@ -107,7 +107,9 @@ app.UseAuthorization();
 app.MapPost("/oauth/token", (TokenRequest request) =>
 {
     if (!DemoClients.TryGetValue(request.ClientId, out var client) || client.ClientSecret != request.ClientSecret)
+    {
         return Results.Unauthorized();
+    }
 
     var now = DateTime.UtcNow;
     var token = new JwtSecurityToken(
@@ -156,7 +158,7 @@ app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest request, RentalS
         logger.LogWarning(ex, "Pickup request rejected for {HttpMethod} {Path}", "POST", "/api/rentals/pickup");
         return Results.BadRequest(new ErrorResponse(
             ErrorCodes.PickupBookingAlreadyExists,
-            ErrorMessages[ErrorCodes.PickupBookingAlreadyExists]));
+            Program.GetErrorMessage(ErrorCodes.PickupBookingAlreadyExists)));
     }
     catch (ArgumentException ex)
     {
@@ -164,7 +166,7 @@ app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest request, RentalS
         logger.LogWarning(ex, "Invalid pickup request input for {HttpMethod} {Path}", "POST", "/api/rentals/pickup");
         return Results.BadRequest(new ErrorResponse(
             ErrorCodes.PickupInvalidInput,
-            ErrorMessages[ErrorCodes.PickupInvalidInput]));
+            Program.GetErrorMessage(ErrorCodes.PickupInvalidInput)));
     }
 }).RequireAuthorization();
 
@@ -187,7 +189,7 @@ app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, 
         logger.LogWarning(ex, "Rental not found for return request {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
         return Results.NotFound(new ErrorResponse(
             ErrorCodes.ReturnRentalNotFound,
-            ErrorMessages[ErrorCodes.ReturnRentalNotFound]));
+            Program.GetErrorMessage(ErrorCodes.ReturnRentalNotFound)));
     }
     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
     {
@@ -195,7 +197,7 @@ app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, 
         logger.LogWarning(ex, "Invalid return request input for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
         return Results.BadRequest(new ErrorResponse(
             ErrorCodes.ReturnInvalidInput,
-            ErrorMessages[ErrorCodes.ReturnInvalidInput]));
+            Program.GetErrorMessage(ErrorCodes.ReturnInvalidInput)));
     }
 }).RequireAuthorization();
 
@@ -242,6 +244,8 @@ public partial class Program
         [ErrorCodes.ReturnRentalNotFound] = "The provided input could not be processed.",
         [ErrorCodes.InternalError] = "An unexpected error occurred."
     };
+
+    internal static string GetErrorMessage(string errorCode) => ErrorMessages[errorCode];
 }
 
 public sealed class ApiTenantContext : ITenantContext
@@ -286,6 +290,6 @@ file sealed class TenantContextMiddleware(RequestDelegate next)
         context.Response.Headers.WWWAuthenticate = "Bearer";
         await Results.Json(new ErrorResponse(
             ErrorCodes.AuthenticationRequired,
-            "A valid tenant access token is required.")).ExecuteAsync(context);
+            Program.GetErrorMessage(ErrorCodes.AuthenticationRequired))).ExecuteAsync(context);
     }
 }
