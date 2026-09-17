@@ -38,7 +38,8 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
 
         var error = await ReadCustomerJsonAsync<ErrorResponse>(response);
         Assert.NotNull(error);
-        Assert.Equal("A valid tenant access token is required.", error!.Error);
+        Assert.Equal(ErrorCodes.AuthenticationRequired, error!.ErrorCode);
+        Assert.Equal("A valid tenant access token is required.", error.ErrorMessage);
     }
 
     [Fact]
@@ -54,7 +55,8 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
 
         var error = await ReadCustomerJsonAsync<ErrorResponse>(response);
         Assert.NotNull(error);
-        Assert.Equal("A valid tenant access token is required.", error!.Error);
+        Assert.Equal(ErrorCodes.AuthenticationRequired, error!.ErrorCode);
+        Assert.Equal("A valid tenant access token is required.", error.ErrorMessage);
     }
 
     [Fact]
@@ -77,7 +79,7 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
-    public async Task Pickup_returns_400_with_customer_error_message_when_booking_number_is_duplicate()
+    public async Task Pickup_returns_400_with_customer_error_code_when_booking_number_is_duplicate()
     {
         var bookingNumber = NewBookingNumber();
         var request = new RegisterPickupRequest(bookingNumber, "ABC123", "customer-a", ContractCarCategory.SmallCar, DateTimeOffset.Parse("2026-09-15T10:00:00Z"), 10000);
@@ -88,7 +90,8 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         Assert.Equal(HttpStatusCode.BadRequest, secondResponse.StatusCode);
         var error = await ReadCustomerJsonAsync<ErrorResponse>(secondResponse);
         Assert.NotNull(error);
-        Assert.Equal("Booking number is already in use.", error!.Error);
+        Assert.Equal(ErrorCodes.PickupBookingAlreadyExists, error!.ErrorCode);
+        Assert.Equal("The provided input could not be processed.", error.ErrorMessage);
     }
 
     [Fact]
@@ -116,7 +119,8 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         var error = await ReadCustomerJsonAsync<ErrorResponse>(response);
         Assert.NotNull(error);
-        Assert.Equal($"Rental '{bookingNumber}' was not found.", error!.Error);
+        Assert.Equal(ErrorCodes.ReturnRentalNotFound, error!.ErrorCode);
+        Assert.Equal("The provided input could not be processed.", error.ErrorMessage);
     }
 
     [Fact]
@@ -196,7 +200,7 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
-    public async Task Return_returns_404_with_error_message_when_rental_does_not_exist()
+    public async Task Return_returns_404_with_customer_error_code_when_rental_does_not_exist()
     {
         var bookingNumber = NewBookingNumber();
         var request = new RegisterReturnRequest(DateTimeOffset.Parse("2026-09-15T18:00:00Z"), 10100, 500m, 2m);
@@ -205,11 +209,12 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         var error = await ReadCustomerJsonAsync<ErrorResponse>(response);
         Assert.NotNull(error);
-        Assert.Equal($"Rental '{bookingNumber}' was not found.", error!.Error);
+        Assert.Equal(ErrorCodes.ReturnRentalNotFound, error!.ErrorCode);
+        Assert.Equal("The provided input could not be processed.", error.ErrorMessage);
     }
 
     [Fact]
-    public async Task Return_returns_400_with_error_message_when_rental_has_already_been_returned()
+    public async Task Return_returns_400_with_customer_error_code_when_rental_has_already_been_returned()
     {
         var bookingNumber = NewBookingNumber();
         await RegisterPickupAsync(bookingNumber, ContractCarCategory.SmallCar, 10000);
@@ -221,11 +226,12 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         Assert.Equal(HttpStatusCode.BadRequest, secondResponse.StatusCode);
         var error = await ReadCustomerJsonAsync<ErrorResponse>(secondResponse);
         Assert.NotNull(error);
-        Assert.Equal("Rental has already been returned.", error!.Error);
+        Assert.Equal(ErrorCodes.ReturnInvalidInput, error!.ErrorCode);
+        Assert.Equal("The provided input was invalid.", error.ErrorMessage);
     }
 
     [Fact]
-    public async Task Return_returns_400_with_error_message_when_return_time_is_before_pickup()
+    public async Task Return_returns_400_with_customer_error_code_when_return_time_is_before_pickup()
     {
         var bookingNumber = NewBookingNumber();
         await RegisterPickupAsync(bookingNumber, ContractCarCategory.SmallCar, 10000);
@@ -235,11 +241,12 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = await ReadCustomerJsonAsync<ErrorResponse>(response);
         Assert.NotNull(error);
-        Assert.Equal("Return time cannot be before pickup time.", error!.Error);
+        Assert.Equal(ErrorCodes.ReturnInvalidInput, error!.ErrorCode);
+        Assert.Equal("The provided input was invalid.", error.ErrorMessage);
     }
 
     [Fact]
-    public async Task Return_returns_400_with_customer_message_when_return_odometer_is_lower_than_pickup()
+    public async Task Return_returns_400_with_customer_error_code_when_return_odometer_is_lower_than_pickup()
     {
         var bookingNumber = NewBookingNumber();
         await RegisterPickupAsync(bookingNumber, ContractCarCategory.SmallCar, 10000);
@@ -249,7 +256,8 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = await ReadCustomerJsonAsync<ErrorResponse>(response);
         Assert.NotNull(error);
-        Assert.Equal("Return odometer cannot be lower than pickup odometer.", error!.Error);
+        Assert.Equal(ErrorCodes.ReturnInvalidInput, error.ErrorCode);
+        Assert.Equal("The provided input was invalid.", error.ErrorMessage);
     }
 
     private async Task RegisterPickupAsync(string bookingNumber, ContractCarCategory category, int odometer, string tenantId = "tenant-a")
