@@ -34,9 +34,4 @@ public sealed record RegisterReturnResponse(
     string BookingNumber,
     decimal FinalPrice);
 
-public sealed record ErrorResponse(string ErrorCode, string ErrorMessage)
-{
-    // Kept for source compatibility with the customer examples/tests.
-    [System.Text.Json.Serialization.JsonIgnore]
-    public string Error => ErrorMessage;
-}
+public sealed record ErrorResponse(string ErrorCode, string ErrorMessage);
