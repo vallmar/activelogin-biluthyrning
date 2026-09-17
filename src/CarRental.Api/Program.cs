@@ -101,9 +101,10 @@ app.UseAuthentication();
 app.UseMiddleware<TenantContextMiddleware>();
 app.UseAuthorization();
 
-app.MapPost("/oauth/token", (TokenRequest request) =>
+app.MapPost("/oauth/token", (TokenRequest? request) =>
 {
-    if (string.IsNullOrWhiteSpace(request.ClientId) ||
+    if (request is null ||
+        string.IsNullOrWhiteSpace(request.ClientId) ||
         string.IsNullOrWhiteSpace(request.ClientSecret))
     {
         return Results.BadRequest(new ErrorResponse(
@@ -137,9 +138,9 @@ app.MapPost("/oauth/token", (TokenRequest request) =>
     return Results.Ok(new TokenResponse(new JwtSecurityTokenHandler().WriteToken(token), "Bearer", 3600));
 }).AllowAnonymous();
 
-app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest request, RentalService service, CancellationToken ct) =>
+app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest? request, RentalService service, CancellationToken ct) =>
 {
-    if (!IsValidPickupRequest(request))
+    if (request is null || !IsValidPickupRequest(request))
     {
         return Results.BadRequest(new ErrorResponse(
             ErrorCodes.PickupInvalidInput,
@@ -186,9 +187,9 @@ app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest request, RentalS
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, RegisterReturnRequest request, RentalService service, CancellationToken ct) =>
+app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, RegisterReturnRequest? request, RentalService service, CancellationToken ct) =>
 {
-    if (!IsValidReturnRequest(bookingNumber, request))
+    if (request is null || !IsValidReturnRequest(bookingNumber, request))
     {
         return Results.BadRequest(new ErrorResponse(
             ErrorCodes.ReturnInvalidInput,
@@ -244,8 +245,8 @@ public partial class Program
     static ContractCarCategory ToContractCategory(CarCategory category) => category switch
     {
         CarCategory.SmallCar => ContractCarCategory.SmallCar,
-        ContractCarCategory.Combi => ContractCarCategory.Combi,
-        ContractCarCategory.Truck => ContractCarCategory.Truck,
+        CarCategory.Combi => ContractCarCategory.Combi,
+        CarCategory.Truck => ContractCarCategory.Truck,
         _ => throw new ArgumentOutOfRangeException(nameof(category), category, "Unknown car category.")
     };
 
