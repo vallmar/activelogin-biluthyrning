@@ -35,10 +35,14 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Contains(response.Headers.WwwAuthenticate, h => h.Scheme.Equals("Bearer", StringComparison.OrdinalIgnoreCase));
+
+        var error = await ReadCustomerJsonAsync<ErrorResponse>(response);
+        Assert.NotNull(error);
+        Assert.Equal("A valid tenant access token is required.", error!.Error);
     }
 
     [Fact]
-    public async Task Invalid_access_token_is_rejected()
+    public async Task Invalid_access_token_is_rejected_with_customer_error_contract()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/test/unhandled-error");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "not-a-jwt");
@@ -46,6 +50,11 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains(response.Headers.WwwAuthenticate, h => h.Scheme.Equals("Bearer", StringComparison.OrdinalIgnoreCase));
+
+        var error = await ReadCustomerJsonAsync<ErrorResponse>(response);
+        Assert.NotNull(error);
+        Assert.Equal("A valid tenant access token is required.", error!.Error);
     }
 
     [Fact]
