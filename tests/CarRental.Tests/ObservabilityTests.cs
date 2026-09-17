@@ -32,9 +32,10 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
 
         var body = await response.Content.ReadFromJsonAsync<ErrorResponse>(TestContext.Current.CancellationToken);
         Assert.NotNull(body);
-        Assert.Equal("An unexpected error occurred.", body!.Error);
-        Assert.DoesNotContain("Intentional test exception", body.Error);
-        Assert.DoesNotContain("InvalidOperationException", body.Error);
+        Assert.Equal(ErrorCodes.InternalError, body!.ErrorCode);
+        Assert.Equal("An unexpected error occurred.", body.ErrorMessage);
+        Assert.DoesNotContain("Intentional test exception", body.ErrorMessage);
+        Assert.DoesNotContain("InvalidOperationException", body.ErrorMessage);
 
         Assert.Contains(
             logSink.Entries,
@@ -70,7 +71,8 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         var error = await response.Content.ReadFromJsonAsync<ErrorResponse>(TestContext.Current.CancellationToken);
         Assert.NotNull(error);
-        Assert.Equal("A valid tenant access token is required.", error!.Error);
+        Assert.Equal(ErrorCodes.AuthenticationRequired, error!.ErrorCode);
+        Assert.Equal("A valid tenant access token is required.", error.ErrorMessage);
 
         Assert.Contains(
             logSink.Entries,
@@ -119,6 +121,11 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
         var response = await client.SendAsync(unauthorizedRequest, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<ErrorResponse>(TestContext.Current.CancellationToken);
+        Assert.NotNull(error);
+        Assert.Equal(ErrorCodes.ReturnRentalNotFound, error!.ErrorCode);
+        Assert.Equal("The provided input could not be processed.", error.ErrorMessage);
+
         Assert.Contains(
             logSink.Entries,
             entry => entry.LogLevel == LogLevel.Warning
