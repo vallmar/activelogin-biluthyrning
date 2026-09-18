@@ -50,13 +50,13 @@ This file records decisions that explain why the project is structured the way i
 
 **Consequence:** The service uses the built-in `ILogger` abstraction. Unexpected failures are logged at Error level, rejected HTTP requests are logged at Warning level, and blocked cross-tenant access is logged as a structured Warning. The current implementation writes to a daily local file rather than introducing a third-party logging stack.
 
-## ADR-007: Tenant identity comes from validated authentication context
+## ADR-007: Tenant identity is explicit at the application boundary
 
-**Decision:** Tenant identity is established by a validated JWT bearer access token. The token's trusted `client_id` claim becomes the tenant identity exposed through `ITenantContext`.
+**Decision:** Tenant identity is established by a validated JWT bearer access token. The token's trusted `client_id` claim becomes the tenant ID passed explicitly into Application operations.
 
-**Why:** Tenant identity must not be caller-controlled business data. JWT validation gives the API a standard authentication boundary and lets the application remain independent of JWT details.
+**Why:** Tenant identity must not be caller-controlled business data. Passing the tenant explicitly is simpler for this small application than an ambient tenant context and makes the security-critical dependency visible at the call site.
 
-**Consequence:** `CarRental.Api` owns authentication and token-to-tenant translation. `CarRental.Application` consumes only `ITenantContext`. Customer JSON contracts contain no tenant identifier.
+**Consequence:** `CarRental.Api` owns authentication and token-to-tenant translation. `CarRental.Application` does not know about JWTs and does not need an `ITenantContext` abstraction. Customer JSON contracts contain no tenant identifier.
 
 ## ADR-008: Showcase token issuer is intentionally local and limited
 
@@ -66,13 +66,13 @@ This file records decisions that explain why the project is structured the way i
 
 **Consequence:** This is not production authentication infrastructure. A real deployment would use an external OAuth 2.0/OIDC identity provider and the API would validate tokens issued by that provider.
 
-## ADR-009: Cross-tenant access attempts are security events
+## ADR-009: Tenant-specific persistence is resolved at runtime
 
-**Decision:** When a tenant requests a booking number that exists under another tenant, the application logs a structured Warning containing the requesting tenant, booking number, and owning tenant, while still returning `404 Not Found` externally.
+**Decision:** The Application layer depends on `IRentalStore`, while `IRentalStoreResolver` selects a store implementation for the authenticated tenant. The reference implementation supports JSON and PDF providers.
 
-**Why:** The attempted access is operationally important and may indicate a client bug, misconfiguration, or malicious behaviour. At the same time, returning `404` prevents the API from disclosing whether another tenant owns the booking.
+**Why:** Different customers may have materially different persistence requirements. The SaaS should support those differences without coupling the Domain or Application service to PostgreSQL, SQL Server, JSON, PDF, or a customer's ERP.
 
-**Consequence:** The repository has a narrowly scoped ownership lookup used only after a tenant-scoped lookup misses. Normal tenant reads remain tenant-scoped.
+**Consequence:** Adding a customer-specific persistence integration means implementing `IRentalStore`, registering the provider and configuring the tenant. The core rental model and API do not change. Customer applications may still own their own local persistence independently.
 
 ## ADR-010: Use a simple daily file logger for the showcase
 
