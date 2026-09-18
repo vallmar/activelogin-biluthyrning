@@ -150,7 +150,6 @@ The system must not be a black box when something goes wrong.
 - Unexpected application errors should be logged with enough context to diagnose the failure.
 - Logs must not contain secrets or unnecessary sensitive/customer data.
 - Logging should distinguish expected business/API failures from unexpected application failures.
-- Cross-tenant access attempts that are detected by the application should be logged as security-relevant warnings while the external response remains a non-disclosing `404 Not Found`.
 - Do not swallow exceptions silently.
 - When adding important operations or infrastructure, consider what an operator would need to understand what happened.
 - Observability changes should include tests where practical, especially around error handling and API behaviour.
