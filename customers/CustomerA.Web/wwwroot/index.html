@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rental API Request Tester</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f5f7fb;color:#172033}
+header{padding:26px 32px;background:#fff;border-bottom:1px solid #e6e9ef}h1{margin:0 0 5px;font-size:24px}header p{margin:0;color:#667085}
+main{display:grid;grid-template-columns:280px 1fr;min-height:calc(100vh - 90px)}
+aside{background:#fff;border-right:1px solid #e6e9ef;padding:18px}.group{margin-bottom:20px}.group-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#98a2b3;margin:0 0 7px}
+button{font:inherit}button.template{display:block;width:100%;text-align:left;border:0;background:transparent;padding:10px 12px;border-radius:8px;cursor:pointer;color:#344054}
+button.template:hover,button.template.active{background:#eef4ff;color:#175cd3}
+section{padding:24px;max-width:1100px;width:100%}.toolbar{display:flex;gap:10px;align-items:end;margin-bottom:14px}
+label{display:block;font-size:12px;font-weight:600;color:#475467;margin-bottom:6px}select,input,textarea{width:100%;border:1px solid #d0d5dd;border-radius:8px;background:#fff;padding:10px 12px;font:inherit}
+.method{width:150px}.booking{width:240px}.send{border:0;border-radius:8px;padding:11px 20px;background:#175cd3;color:#fff;font-weight:700;cursor:pointer}.send:hover{background:#1849a9}
+textarea{min-height:330px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.5;resize:vertical}
+.hint{color:#667085;font-size:12px;margin-top:7px}.card{background:#fff;border:1px solid #e6e9ef;border-radius:12px;padding:18px;margin-top:16px}.card h2{margin:0 0 12px;font-size:15px}
+pre{margin:0;white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}.status{display:inline-block;padding:4px 9px;border-radius:999px;font-weight:700;font-size:12px;margin-bottom:10px}.ok{background:#ecfdf3;color:#027a48}.bad{background:#fef3f2;color:#b42318}
+@media(max-width:750px){main{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid #e6e9ef}.toolbar{flex-wrap:wrap}.method,.booking{width:100%}}
+</style>
+</head>
+<body>
+<header><h1>Rental API Request Tester</h1><p>Choose a template, edit the JSON and see the exact API response.</p></header>
+<main>
+<aside>
+<div class="group"><div class="group-title">Success</div>
+<button class="template active" data-name="Successful pickup">✓ Successful pickup</button>
+<button class="template" data-name="Successful return">✓ Successful return</button></div>
+<div class="group"><div class="group-title">Pickup errors</div>
+<button class="template" data-name="Pickup – invalid input">400 Invalid input</button>
+<button class="template" data-name="Pickup – duplicate booking">400 Duplicate booking</button></div>
+<div class="group"><div class="group-title">Return errors</div>
+<button class="template" data-name="Return – invalid input">400 Invalid input</button>
+<button class="template" data-name="Return – rental not found">404 Rental not found</button></div>
+</aside>
+<section>
+<div class="toolbar">
+<div class="method"><label>Request</label><select id="method"><option value="pickup">POST pickup</option><option value="return">POST return</option></select></div>
+<div class="booking"><label>Booking number (return URL)</label><input id="booking" value="A-1001"></div>
+<button class="send" id="send">Send request</button>
+</div>
+<label>JSON body — editable</label>
+<textarea id="json"></textarea>
+<div class="hint">Edit anything here. The JSON body is sent to the rental API unchanged.</div>
+<div class="card"><h2>Request sent</h2><pre id="request">Nothing sent yet.</pre></div>
+<div class="card"><h2>API response</h2><div id="status"></div><pre id="response">Nothing sent yet.</pre></div>
+</section>
+</main>
+<script>
+const templates={
+"Successful pickup":{method:"pickup",booking:"A-1001",json:{bookingNumber:"A-1001",registrationNumber:"ABC123",customerIdentifier:"customer-a",category:"SmallCar",pickupTime:"2026-09-18T10:00:00Z",pickupOdometer:10000}},
+"Successful return":{method:"return",booking:"A-1001",json:{returnTime:"2026-09-19T10:00:00Z",returnOdometer:10100,baseDailyPrice:500,baseKmPrice:2}},
+"Pickup – invalid input":{method:"pickup",booking:"A-1002",json:{bookingNumber:"",registrationNumber:"ABC123",customerIdentifier:"customer-a",category:"SmallCar",pickupTime:"2026-09-18T10:00:00Z",pickupOdometer:10000}},
+"Pickup – duplicate booking":{method:"pickup",booking:"A-1001",json:{bookingNumber:"A-1001",registrationNumber:"ABC123",customerIdentifier:"customer-a",category:"SmallCar",pickupTime:"2026-09-18T10:00:00Z",pickupOdometer:10000}},
+"Return – invalid input":{method:"return",booking:"A-1001",json:{returnTime:"2026-09-17T10:00:00Z",returnOdometer:-1,baseDailyPrice:500,baseKmPrice:2}},
+"Return – rental not found":{method:"return",booking:"DOES-NOT-EXIST",json:{returnTime:"2026-09-19T10:00:00Z",returnOdometer:10100,baseDailyPrice:500,baseKmPrice:2}}
+};
+const $=id=>document.querySelector(id),json=$("#json"),method=$("#method"),booking=$("#booking");
+function load(name){const t=templates[name];method.value=t.method;booking.value=t.booking;json.value=JSON.stringify(t.json,null,2);document.querySelectorAll(".template").forEach(b=>b.classList.toggle("active",b.dataset.name===name))}
+document.querySelectorAll(".template").forEach(b=>b.addEventListener("click",()=>load(b.dataset.name)));
+$("#send").addEventListener("click",async()=>{
+  let parsed;try{parsed=JSON.parse(json.value)}catch{$("#status").className="status bad";$("#status").textContent="Invalid JSON";$("#response").textContent="Fix the JSON before sending.";return}
+  const url=method.value==="pickup"?"/api/rentals/pickup":"/api/rentals/"+encodeURIComponent(booking.value)+"/return";
+  $("#request").textContent=JSON.stringify({method:"POST",url,body:parsed},null,2);
+  $("#status").className="status";$("#status").textContent="Sending…";$("#response").textContent="";
+  try{
+    const r=await fetch("/send",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({method:method.value,bookingNumber:booking.value,json:json.value})});
+    const data=await r.json();
+    $("#status").className="status "+(data.statusCode>=200&&data.statusCode<300?"ok":"bad");
+    $("#status").textContent=data.statusCode+" "+(data.statusCode>=200&&data.statusCode<300?"Success":"Error");
+    $("#response").textContent=JSON.stringify(data.responseJson,null,2);
+  }catch(e){$("#status").className="status bad";$("#status").textContent="Request failed";$("#response").textContent=String(e)}
+});
+load("Successful pickup");
+</script>
+</body>
+</html>
