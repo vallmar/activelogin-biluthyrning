@@ -7,9 +7,8 @@ using CarRental.Application.Pricing;
 using CarRental.Application.Rentals;
 using CarRental.Contracts;
 using CarRental.Domain;
-using CarRental.Infrastructure.InMemory;
+using CarRental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 
@@ -31,6 +30,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -47,10 +47,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.FromSeconds(30)
         };
     });
+
 builder.Services.AddAuthorization();
-builder.Services.AddSingleton<IRentalRepository, InMemoryRentalRepository>();
-builder.Services.AddScoped<ApiTenantContext>();
-builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<ApiTenantContext>());
+builder.Services.AddSingleton<IRentalStoreResolver>(sp =>
+    new ConfiguredRentalStoreResolver(
+        sp.GetRequiredService<IConfiguration>(),
+        sp.GetRequiredService<IHostEnvironment>().ContentRootPath));
 builder.Services.AddScoped<RentalService>();
 
 var app = builder.Build();
@@ -98,7 +100,6 @@ app.Use(async (context, next) =>
 });
 
 app.UseAuthentication();
-app.UseMiddleware<TenantContextMiddleware>();
 app.UseAuthorization();
 
 app.MapPost("/oauth/token", (TokenRequest? request) =>
@@ -138,7 +139,11 @@ app.MapPost("/oauth/token", (TokenRequest? request) =>
     return Results.Ok(new TokenResponse(new JwtSecurityTokenHandler().WriteToken(token), "Bearer", 3600));
 }).AllowAnonymous();
 
-app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest? request, RentalService service, CancellationToken ct) =>
+app.MapPost("/api/rentals/pickup", async (
+    RegisterPickupRequest? request,
+    HttpContext context,
+    RentalService service,
+    CancellationToken ct) =>
 {
     if (request is null || !IsValidPickupRequest(request))
     {
@@ -147,9 +152,12 @@ app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest? request, Rental
             Program.GetErrorMessage(ErrorCodes.PickupInvalidInput)));
     }
 
+    var tenantId = GetTenantId(context);
+
     try
     {
         var rental = await service.RegisterPickupAsync(
+            tenantId,
             request.BookingNumber,
             request.RegistrationNumber,
             request.CustomerIdentifier,
@@ -171,23 +179,26 @@ app.MapPost("/api/rentals/pickup", async (RegisterPickupRequest? request, Rental
     }
     catch (InvalidOperationException ex)
     {
-        var logger = app.Logger;
-        logger.LogWarning(ex, "Pickup request rejected for {HttpMethod} {Path}", "POST", "/api/rentals/pickup");
+        app.Logger.LogWarning(ex, "Pickup request rejected for {HttpMethod} {Path}", "POST", "/api/rentals/pickup");
         return Results.BadRequest(new ErrorResponse(
             ErrorCodes.PickupBookingAlreadyExists,
             Program.GetErrorMessage(ErrorCodes.PickupBookingAlreadyExists)));
     }
     catch (ArgumentException ex)
     {
-        var logger = app.Logger;
-        logger.LogWarning(ex, "Invalid pickup request input for {HttpMethod} {Path}", "POST", "/api/rentals/pickup");
+        app.Logger.LogWarning(ex, "Invalid pickup request input for {HttpMethod} {Path}", "POST", "/api/rentals/pickup");
         return Results.BadRequest(new ErrorResponse(
             ErrorCodes.PickupInvalidInput,
             Program.GetErrorMessage(ErrorCodes.PickupInvalidInput)));
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, RegisterReturnRequest? request, RentalService service, CancellationToken ct) =>
+app.MapPost("/api/rentals/{bookingNumber}/return", async (
+    string bookingNumber,
+    RegisterReturnRequest? request,
+    HttpContext context,
+    RentalService service,
+    CancellationToken ct) =>
 {
     if (request is null || !IsValidReturnRequest(bookingNumber, request))
     {
@@ -196,9 +207,12 @@ app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, 
             Program.GetErrorMessage(ErrorCodes.ReturnInvalidInput)));
     }
 
+    var tenantId = GetTenantId(context);
+
     try
     {
         var price = await service.RegisterReturnAsync(
+            tenantId,
             bookingNumber,
             request.ReturnTime,
             request.ReturnOdometer,
@@ -209,16 +223,14 @@ app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, 
     }
     catch (KeyNotFoundException ex)
     {
-        var logger = app.Logger;
-        logger.LogWarning(ex, "Rental not found for return request {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
+        app.Logger.LogWarning(ex, "Rental not found for return request {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
         return Results.NotFound(new ErrorResponse(
             ErrorCodes.ReturnRentalNotFound,
             Program.GetErrorMessage(ErrorCodes.ReturnRentalNotFound)));
     }
     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
     {
-        var logger = app.Logger;
-        logger.LogWarning(ex, "Invalid return request input for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
+        app.Logger.LogWarning(ex, "Invalid return request input for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
         return Results.BadRequest(new ErrorResponse(
             ErrorCodes.ReturnInvalidInput,
             Program.GetErrorMessage(ErrorCodes.ReturnInvalidInput)));
@@ -226,7 +238,7 @@ app.MapPost("/api/rentals/{bookingNumber}/return", async (string bookingNumber, 
 }).RequireAuthorization();
 
 #if DEBUG
-app.MapGet("/api/test/unhandled-error", (HttpContext context) => throw new InvalidOperationException("Intentional test exception."))
+app.MapGet("/api/test/unhandled-error", () => throw new InvalidOperationException("Intentional test exception."))
     .RequireAuthorization();
 #endif
 
@@ -234,6 +246,10 @@ app.Run();
 
 public partial class Program
 {
+    internal static string GetTenantId(HttpContext context)
+        => context.User.FindFirst("client_id")?.Value
+           ?? throw new UnauthorizedAccessException("Tenant identity is missing.");
+
     static CarCategory ToDomainCategory(ContractCarCategory category) => category switch
     {
         ContractCarCategory.SmallCar => CarCategory.SmallCar,
@@ -269,69 +285,27 @@ public partial class Program
                request.BaseKmPrice >= 0;
     }
 
-    private static readonly IReadOnlyDictionary<string, DemoClient> DemoClients = new Dictionary<string, DemoClient>(StringComparer.Ordinal)
-    {
-        ["tenant-a"] = new DemoClient("secret-a"),
-        ["tenant-b"] = new DemoClient("secret-b")
-    };
+    private static readonly IReadOnlyDictionary<string, DemoClient> DemoClients =
+        new Dictionary<string, DemoClient>(StringComparer.Ordinal)
+        {
+            ["tenant-a"] = new DemoClient("secret-a"),
+            ["tenant-b"] = new DemoClient("secret-b")
+        };
 
-    private static readonly IReadOnlyDictionary<string, string> ErrorMessages = new Dictionary<string, string>(StringComparer.Ordinal)
-    {
-        [ErrorCodes.AuthenticationInvalidInput] = "The provided input was invalid.",
-        [ErrorCodes.AuthenticationInvalidCredentials] = "The supplied credentials were invalid.",
-        [ErrorCodes.AuthenticationRequired] = "A valid tenant access token is required.",
-        [ErrorCodes.PickupInvalidInput] = "The provided input was invalid.",
-        [ErrorCodes.PickupBookingAlreadyExists] = "The provided input could not be processed.",
-        [ErrorCodes.ReturnInvalidInput] = "The provided input was invalid.",
-        [ErrorCodes.ReturnRentalNotFound] = "The provided input could not be processed.",
-        [ErrorCodes.InternalError] = "An unexpected error occurred."
-    };
+    private static readonly IReadOnlyDictionary<string, string> ErrorMessages =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [ErrorCodes.AuthenticationInvalidInput] = "The provided input was invalid.",
+            [ErrorCodes.AuthenticationInvalidCredentials] = "The supplied credentials were invalid.",
+            [ErrorCodes.AuthenticationRequired] = "A valid tenant access token is required.",
+            [ErrorCodes.PickupInvalidInput] = "The provided input was invalid.",
+            [ErrorCodes.PickupBookingAlreadyExists] = "The provided input could not be processed.",
+            [ErrorCodes.ReturnInvalidInput] = "The provided input was invalid.",
+            [ErrorCodes.ReturnRentalNotFound] = "The provided input could not be processed.",
+            [ErrorCodes.InternalError] = "An unexpected error occurred."
+        };
 
     internal static string GetErrorMessage(string errorCode) => ErrorMessages[errorCode];
 }
 
-public sealed class ApiTenantContext : ITenantContext
-{
-    public string TenantId { get; private set; } = string.Empty;
-
-    public void SetTenant(string tenantId) => TenantId = tenantId;
-}
-
 internal sealed record DemoClient(string ClientSecret);
-
-file sealed class TenantContextMiddleware(RequestDelegate next)
-{
-    public async Task InvokeAsync(HttpContext context, ApiTenantContext tenantContext)
-    {
-        if (context.GetEndpoint()?.Metadata.GetMetadata<IAllowAnonymous>() is not null)
-        {
-            await next(context);
-            return;
-        }
-
-        if (context.User.Identity?.IsAuthenticated != true)
-        {
-            await UnauthorizedAsync(context);
-            return;
-        }
-
-        var tenantId = context.User.FindFirst("client_id")?.Value;
-        if (string.IsNullOrWhiteSpace(tenantId))
-        {
-            await UnauthorizedAsync(context);
-            return;
-        }
-
-        tenantContext.SetTenant(tenantId);
-        await next(context);
-    }
-
-    private static async Task UnauthorizedAsync(HttpContext context)
-    {
-        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        context.Response.Headers.WWWAuthenticate = "Bearer";
-        await Results.Json(new ErrorResponse(
-            ErrorCodes.AuthenticationRequired,
-            Program.GetErrorMessage(ErrorCodes.AuthenticationRequired))).ExecuteAsync(context);
-    }
-}

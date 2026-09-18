@@ -33,7 +33,7 @@ public sealed class Rental
         PickupOdometer = pickupOdometer;
     }
 
-    // Keeps direct domain tests simple; application-created rentals always receive the tenant from ITenantContext.
+    // Keeps direct domain tests simple; application-created rentals always receive the authenticated tenant explicitly.
     public Rental(string bookingNumber, string registrationNumber, string customerIdentifier,
         CarCategory category, DateTimeOffset pickupTime, int pickupOdometer)
         : this("test-tenant", bookingNumber, registrationNumber, customerIdentifier, category, pickupTime, pickupOdometer)
