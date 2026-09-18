@@ -2,7 +2,6 @@ using CarRental.Application.Ports;
 using CarRental.Application.Pricing;
 using CarRental.Application.Rentals;
 using CarRental.Domain;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace CarRental.Tests;
@@ -12,55 +11,87 @@ public sealed class RentalServiceTests
     [Fact]
     public async Task Register_return_calculates_and_persists_final_price()
     {
-        var repository = new InMemoryTestRepository();
-        var service = CreateService(repository, "tenant-a");
+        var store = new InMemoryRentalStore();
+        var service = new RentalService(new TestStoreResolver(store), new PriceCalculator());
 
-        await service.RegisterPickupAsync("B-1", "ABC123", "customer-1", CarCategory.Combi, DateTimeOffset.Parse("2026-01-01T10:00:00+01:00"), 10_000, TestContext.Current.CancellationToken);
+        await service.RegisterPickupAsync(
+            "tenant-a", "B-1", "ABC123", "customer-1", CarCategory.Combi,
+            DateTimeOffset.Parse("2026-01-01T10:00:00+01:00"), 10_000,
+            TestContext.Current.CancellationToken);
 
-        var price = await service.RegisterReturnAsync("B-1", DateTimeOffset.Parse("2026-01-03T10:00:00+01:00"), 10_100, new Pricing(500m, 2m), TestContext.Current.CancellationToken);
+        var price = await service.RegisterReturnAsync(
+            "tenant-a", "B-1",
+            DateTimeOffset.Parse("2026-01-03T10:00:00+01:00"), 10_100,
+            new Pricing(500m, 2m), TestContext.Current.CancellationToken);
 
         Assert.Equal(1500m, price);
-        Assert.Equal(1500m, repository.Items[("tenant-a", "B-1")].FinalPrice);
+        var rental = await store.GetAsync("B-1", TestContext.Current.CancellationToken);
+        Assert.NotNull(rental);
+        Assert.Equal(1500m, rental!.FinalPrice);
+    }
+
+    [Fact]
+    public async Task Same_booking_number_can_be_used_by_different_tenant_stores()
+    {
+        var tenantAStore = new InMemoryRentalStore();
+        var tenantBStore = new InMemoryRentalStore();
+        var resolver = new DictionaryStoreResolver(("tenant-a", tenantAStore), ("tenant-b", tenantBStore));
+        var service = new RentalService(resolver, new PriceCalculator());
+
+        await service.RegisterPickupAsync(
+            "tenant-a", "B-1", "ABC123", "customer-a", CarCategory.SmallCar,
+            DateTimeOffset.UtcNow, 10_000, TestContext.Current.CancellationToken);
+
+        await service.RegisterPickupAsync(
+            "tenant-b", "B-1", "XYZ789", "customer-b", CarCategory.Truck,
+            DateTimeOffset.UtcNow, 20_000, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(await tenantAStore.GetAsync("B-1"));
+        Assert.NotNull(await tenantBStore.GetAsync("B-1"));
     }
 
     [Fact]
     public async Task Unknown_booking_number_fails_on_return()
     {
-        var service = CreateService(new InMemoryTestRepository(), "tenant-a");
+        var service = new RentalService(new TestStoreResolver(new InMemoryRentalStore()), new PriceCalculator());
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.RegisterReturnAsync("missing", DateTimeOffset.Parse("2026-01-03T10:00:00+01:00"), 10_100, new Pricing(500m, 2m), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            service.RegisterReturnAsync(
+                "tenant-a", "missing",
+                DateTimeOffset.Parse("2026-01-03T10:00:00+01:00"), 10_100,
+                new Pricing(500m, 2m), TestContext.Current.CancellationToken));
     }
 
-    private static RentalService CreateService(InMemoryTestRepository repository, string tenantId)
-        => new(repository, new PriceCalculator(), new TestTenantContext(tenantId), NullLogger<RentalService>.Instance);
-
-    private sealed class TestTenantContext(string tenantId) : ITenantContext
+    private sealed class TestStoreResolver(IRentalStore store) : IRentalStoreResolver
     {
-        public string TenantId { get; } = tenantId;
+        public IRentalStore Resolve(string tenantId) => store;
     }
 
-    private sealed class InMemoryTestRepository : IRentalRepository
+    private sealed class DictionaryStoreResolver(params (string TenantId, IRentalStore Store)[] entries) : IRentalStoreResolver
     {
-        public Dictionary<(string TenantId, string BookingNumber), Rental> Items { get; } = new();
+        private readonly Dictionary<string, IRentalStore> stores =
+            entries.ToDictionary(x => x.TenantId, x => x.Store, StringComparer.Ordinal);
 
-        public Task<Rental?> GetByBookingNumberAsync(string tenantId, string bookingNumber, CancellationToken cancellationToken = default)
-            => Task.FromResult(Items.GetValueOrDefault((tenantId, bookingNumber)));
+        public IRentalStore Resolve(string tenantId) => stores[tenantId];
+    }
 
-        public Task<string?> GetOwnerTenantIdByBookingNumberAsync(string bookingNumber, CancellationToken cancellationToken = default)
+    private sealed class InMemoryRentalStore : IRentalStore
+    {
+        private readonly Dictionary<string, Rental> rentals = new(StringComparer.Ordinal);
+
+        public Task<Rental?> GetAsync(string bookingNumber, CancellationToken cancellationToken = default)
+            => Task.FromResult(rentals.GetValueOrDefault(bookingNumber));
+
+        public Task CreateAsync(Rental rental, CancellationToken cancellationToken = default)
         {
-            var match = Items.Keys.FirstOrDefault(key => key.BookingNumber == bookingNumber);
-            return Task.FromResult(match == default ? null : match.TenantId);
-        }
-
-        public Task AddAsync(Rental rental, CancellationToken cancellationToken = default)
-        {
-            if (!Items.TryAdd((rental.TenantId, rental.BookingNumber), rental)) throw new InvalidOperationException();
+            if (!rentals.TryAdd(rental.BookingNumber, rental))
+                throw new InvalidOperationException("Booking number is already in use.");
             return Task.CompletedTask;
         }
 
         public Task UpdateAsync(Rental rental, CancellationToken cancellationToken = default)
         {
-            Items[(rental.TenantId, rental.BookingNumber)] = rental;
+            rentals[rental.BookingNumber] = rental;
             return Task.CompletedTask;
         }
     }
