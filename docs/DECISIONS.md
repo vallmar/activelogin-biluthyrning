@@ -48,7 +48,7 @@ This file records decisions that explain why the project is structured the way i
 
 **Why:** A service that cannot explain failures is difficult to operate and debug, even when its business logic is correct.
 
-**Consequence:** The service uses the built-in `ILogger` abstraction. Unexpected failures are logged at Error level, rejected HTTP requests are logged at Warning level, and blocked cross-tenant access is logged as a structured Warning. The current implementation writes to a daily local file rather than introducing a third-party logging stack.
+**Consequence:** The service uses the built-in `ILogger` abstraction. Unexpected failures are logged at Error level and rejected HTTP requests are logged at Warning level. The current implementation writes to a daily local file rather than introducing a third-party logging stack.
 
 ## ADR-007: Tenant identity is explicit at the application boundary
 
