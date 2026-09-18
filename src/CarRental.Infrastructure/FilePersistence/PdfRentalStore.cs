@@ -167,6 +167,6 @@ public sealed class PdfRentalStore(string directory) : IRentalStore
     private static void ConfigureFonts()
     {
         if (Interlocked.Exchange(ref fontResolverConfigured, 1) == 0)
-            GlobalFontSettings.FontResolver = new PdfSharp.Snippets.Font.FailsafeFontResolver();
+            GlobalFontSettings.FontResolver = new PortablePdfFontResolver();
     }
 }
