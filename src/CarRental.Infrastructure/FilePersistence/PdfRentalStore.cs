@@ -6,6 +6,7 @@ using PdfSharp;
 using PdfSharp.Drawing;
 using PdfSharp.Fonts;
 using PdfSharp.Pdf;
+using PdfSharp.Pdf.IO;
 
 namespace CarRental.Infrastructure.FilePersistence;
 
@@ -79,7 +80,7 @@ public sealed class PdfRentalStore(string directory) : IRentalStore
             $"Car Rental - {eventType}",
             titleFont,
             XBrushes.Black,
-            new XPoint(50, y));
+            50, y);
 
         y += 40;
 
@@ -89,7 +90,7 @@ public sealed class PdfRentalStore(string directory) : IRentalStore
                 line,
                 bodyFont,
                 XBrushes.Black,
-                new XPoint(50, y));
+                50, y);
             y += 22;
         }
 
