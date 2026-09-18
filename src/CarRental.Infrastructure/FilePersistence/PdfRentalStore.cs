@@ -38,7 +38,7 @@ public sealed class PdfRentalStore(string directory) : IRentalStore
         Directory.CreateDirectory(directory);
         var path = GetPath(rental.BookingNumber, "pickup");
 
-        if (File.Exists(path))
+        if (File.Exists(path) || File.Exists(GetPath(rental.BookingNumber, "return")))
             throw new InvalidOperationException("Booking number is already in use.");
 
         await WriteSnapshotAsync(path, rental, "PICKUP", cancellationToken);
