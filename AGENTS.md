@@ -53,7 +53,8 @@ Everything under `customers/` represents an independent customer application.
 - Customer projects must never reference `CarRental.Domain`, `CarRental.Application`, `CarRental.Infrastructure`, or `CarRental.Api` as project/code dependencies.
 - Do not share internal domain classes with customers.
 - Treat each customer project as if it lived in a completely separate repository maintained by another company.
-- Customer-specific persistence and models belong in the customer project, not in the SaaS core.
+- Customer applications may own their own local persistence and models. The SaaS may also provide a managed, tenant-specific persistence adapter when the customer wants the SaaS to persist rental state on its behalf.
+- Managed customer-specific persistence belongs behind IRentalStore; it must not leak into the Domain or API.
 
 ## 4. Abstractions must be earned
 
@@ -172,11 +173,11 @@ The project uses validated JWT bearer tokens to establish tenant context.
 - Customer requests authenticate with `Authorization: Bearer <access_token>`.
 - The showcase `/oauth/token` endpoint issues short-lived demo JWTs for two configured showcase clients; this is a local demonstration of token issuance, not a production identity provider.
 - The API validates token signature, issuer, audience, and lifetime before trusting tenant identity.
-- Tenant identity is derived from the validated `client_id` claim and exposed to Application through `ITenantContext`.
+- Tenant identity is derived from the validated `client_id` claim and passed explicitly into Application operations.
 - Tenant identity must not be supplied as a customer-controlled JSON business field.
-- Application operations must obtain tenant identity from `ITenantContext` and persistence lookups must be tenant-scoped.
+- Application operations must receive tenant identity from the authenticated API boundary, and persistence must be resolved per tenant.
 - A booking number is unique within a tenant, not globally.
-- If a requested booking exists for another tenant, the operation must remain non-disclosing to the caller (`404 Not Found`) and should emit a security-relevant warning with useful internal context.
+- If a requested booking is unavailable to the current tenant, the operation must remain non-disclosing to the caller (`404 Not Found`).
 - Tests must cover authentication failure, cross-tenant isolation, and logging of blocked cross-tenant access.
 
 ## 15. Definition of done for agent changes
