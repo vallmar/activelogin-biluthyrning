@@ -6,6 +6,7 @@ namespace CarRental.Application.Rentals;
 
 public sealed class RentalService(
     IRentalStoreResolver storeResolver,
+    IBookingNumberRegistry bookingNumberRegistry,
     PriceCalculator priceCalculator)
 {
     public async Task<Rental> RegisterPickupAsync(
@@ -20,7 +21,7 @@ public sealed class RentalService(
     {
         var store = storeResolver.Resolve(tenantId);
 
-        if (await store.GetAsync(bookingNumber, cancellationToken) is not null)
+        if (!await bookingNumberRegistry.TryReserveAsync(bookingNumber, tenantId, cancellationToken))
             throw new InvalidOperationException("Booking number is already in use.");
 
         var rental = new Rental(
@@ -32,8 +33,16 @@ public sealed class RentalService(
             pickupTime,
             pickupOdometer);
 
-        await store.CreateAsync(rental, cancellationToken);
-        return rental;
+        try
+        {
+            await store.CreateAsync(rental, cancellationToken);
+            return rental;
+        }
+        catch
+        {
+            await bookingNumberRegistry.ReleaseAsync(bookingNumber, tenantId, cancellationToken);
+            throw;
+        }
     }
 
     public async Task<decimal> RegisterReturnAsync(
