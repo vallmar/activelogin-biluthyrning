@@ -19,10 +19,20 @@ public sealed class RentalService(
         CancellationToken cancellationToken = default)
     {
         var store = storeResolver.Resolve(tenantId);
-        var bookingNumber = $"R-{Guid.NewGuid():N}";
+        string bookingNumber = string.Empty;
 
-        if (!await bookingNumberRegistry.TryReserveAsync(bookingNumber, tenantId, cancellationToken))
-            throw new BookingNumberAlreadyExistsException(bookingNumber);
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var candidate = $"R-{Guid.NewGuid():N}";
+            if (await bookingNumberRegistry.TryReserveAsync(candidate, tenantId, cancellationToken))
+            {
+                bookingNumber = candidate;
+                break;
+            }
+        }
+
+        if (string.IsNullOrEmpty(bookingNumber))
+            throw new InvalidOperationException("Could not allocate a unique booking number.");
 
         var rental = new Rental(
             tenantId,
