@@ -12,7 +12,7 @@ public sealed class RentalServiceTests
     public async Task Register_return_calculates_and_persists_final_price()
     {
         var store = new InMemoryRentalStore();
-        var service = new RentalService(new TestStoreResolver(store), new PriceCalculator());
+        var service = new RentalService(new TestStoreResolver(store), new InMemoryBookingNumberRegistry(), new PriceCalculator());
 
         await service.RegisterPickupAsync(
             "tenant-a", "B-1", "ABC123", "customer-1", CarCategory.Combi,
@@ -31,29 +31,31 @@ public sealed class RentalServiceTests
     }
 
     [Fact]
-    public async Task Same_booking_number_can_be_used_by_different_tenant_stores()
+    public async Task Booking_number_must_be_globally_unique_across_tenants()
     {
         var tenantAStore = new InMemoryRentalStore();
         var tenantBStore = new InMemoryRentalStore();
         var resolver = new DictionaryStoreResolver(("tenant-a", tenantAStore), ("tenant-b", tenantBStore));
-        var service = new RentalService(resolver, new PriceCalculator());
+        var registry = new InMemoryBookingNumberRegistry();
+        var service = new RentalService(resolver, registry, new PriceCalculator());
 
         await service.RegisterPickupAsync(
             "tenant-a", "B-1", "ABC123", "customer-a", CarCategory.SmallCar,
             DateTimeOffset.UtcNow, 10_000, TestContext.Current.CancellationToken);
 
-        await service.RegisterPickupAsync(
-            "tenant-b", "B-1", "XYZ789", "customer-b", CarCategory.Truck,
-            DateTimeOffset.UtcNow, 20_000, TestContext.Current.CancellationToken);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.RegisterPickupAsync(
+                "tenant-b", "B-1", "XYZ789", "customer-b", CarCategory.Truck,
+                DateTimeOffset.UtcNow, 20_000, TestContext.Current.CancellationToken));
 
         Assert.NotNull(await tenantAStore.GetAsync("B-1"));
-        Assert.NotNull(await tenantBStore.GetAsync("B-1"));
+        Assert.Null(await tenantBStore.GetAsync("B-1"));
     }
 
     [Fact]
     public async Task Unknown_booking_number_fails_on_return()
     {
-        var service = new RentalService(new TestStoreResolver(new InMemoryRentalStore()), new PriceCalculator());
+        var service = new RentalService(new TestStoreResolver(new InMemoryRentalStore()), new InMemoryBookingNumberRegistry(), new PriceCalculator());
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             service.RegisterReturnAsync(
@@ -73,6 +75,20 @@ public sealed class RentalServiceTests
             entries.ToDictionary(x => x.TenantId, x => x.Store, StringComparer.Ordinal);
 
         public IRentalStore Resolve(string tenantId) => stores[tenantId];
+    }
+
+    private sealed class InMemoryBookingNumberRegistry : IBookingNumberRegistry
+    {
+        private readonly HashSet<string> bookingNumbers = new(StringComparer.Ordinal);
+
+        public Task<bool> TryReserveAsync(string bookingNumber, string tenantId, CancellationToken cancellationToken = default)
+            => Task.FromResult(bookingNumbers.Add(bookingNumber));
+
+        public Task ReleaseAsync(string bookingNumber, string tenantId, CancellationToken cancellationToken = default)
+        {
+            bookingNumbers.Remove(bookingNumber);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class InMemoryRentalStore : IRentalStore
