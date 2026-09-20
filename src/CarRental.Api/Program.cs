@@ -184,9 +184,9 @@ app.MapPost("/api/rentals/pickup", async (
 
         return Results.Created($"/api/rentals/{rental.BookingNumber}", response);
     }
-    catch (InvalidOperationException ex)
+    catch (BookingNumberAlreadyExistsException ex)
     {
-        app.Logger.LogWarning(ex, "Pickup request rejected for {HttpMethod} {Path}", "POST", "/api/rentals/pickup");
+        app.Logger.LogWarning(ex, "Pickup request rejected because the booking number is already in use.");
         return Results.BadRequest(new ErrorResponse(
             ErrorCodes.PickupBookingAlreadyExists,
             Program.GetErrorMessage(ErrorCodes.PickupBookingAlreadyExists)));
