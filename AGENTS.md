@@ -175,9 +175,9 @@ The project uses validated JWT bearer tokens to establish tenant context.
 - Tenant identity is derived from the validated `client_id` claim and passed explicitly into Application operations.
 - Tenant identity must not be supplied as a customer-controlled JSON business field.
 - Application operations must receive tenant identity from the authenticated API boundary, and persistence must be resolved globally.
-- A booking number is unique within a tenant, not globally.
+- A booking number is globally unique across the API, regardless of tenant.
 - If a requested booking is unavailable to the current tenant, the operation must remain non-disclosing to the caller (`404 Not Found`).
-- Tests must cover authentication failure, cross-tenant isolation, and logging of blocked cross-tenant access.
+- Tests must cover authentication failure, cross-tenant isolation, and global booking-number uniqueness.
 
 ## 15. Definition of done for agent changes
 
