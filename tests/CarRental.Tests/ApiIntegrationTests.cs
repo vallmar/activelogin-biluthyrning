@@ -70,6 +70,8 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
         var body = await ReadCustomerJsonAsync<RegisterPickupResponse>(response);
         Assert.NotNull(body);
         var bookingNumber = body!.BookingNumber;
+        Assert.False(string.IsNullOrWhiteSpace(bookingNumber));
+        Assert.StartsWith("R-", bookingNumber);
         Assert.Equal("ABC123", body.RegistrationNumber);
         Assert.Equal("customer-a", body.CustomerIdentifier);
         Assert.Equal(ContractCarCategory.SmallCar, body.Category);
@@ -110,7 +112,7 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
     [Fact]
     public async Task Return_returns_404_with_customer_error_code_when_rental_does_not_exist()
     {
-        var bookingNumber = NewBookingNumber();
+        var bookingNumber = $"UNKNOWN-{Guid.NewGuid():N}";
         var request = new RegisterReturnRequest(DateTimeOffset.Parse("2026-09-15T18:00:00Z"), 10100, 500m, 2m);
         var response = await PostAsCustomerJsonAsync($"/api/rentals/{bookingNumber}/return", request);
 
