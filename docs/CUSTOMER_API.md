@@ -46,7 +46,7 @@ The local `/oauth/token` endpoint exists only to make this repository self-conta
 
 Tenant isolation is part of the application behaviour:
 
-- the same booking number may exist in different tenants;
+- the booking numbers are globally unique across the entire API;
 - rental lookups are always scoped to the authenticated tenant;
 - a tenant cannot return or modify another tenant's rental;
 - an attempt to access another tenant's known booking returns `404 Not Found`, so the API does not disclose that the booking exists for another tenant;
