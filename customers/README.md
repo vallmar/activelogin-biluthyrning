@@ -16,6 +16,8 @@ The customer application:
 
 The rental records themselves are persisted by the SaaS PDF persistence adapter configured for the tenant.
 
+`CustomerA.Web` is a browser-based request tester for the same customer integration. It uses the real API, shows editable request templates, captures the generated booking number after pickup, and uses that booking number for return.
+
 ## Customer B — Azure SQL Database
 
 `CustomerB.AzureSql` demonstrates the Azure SQL customer integration contract.
