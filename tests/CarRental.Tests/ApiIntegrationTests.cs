@@ -69,7 +69,7 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await ReadCustomerJsonAsync<RegisterPickupResponse>(response);
         Assert.NotNull(body);
-        Assert.Equal(bookingNumber, body!.BookingNumber);
+        var bookingNumber = body!.BookingNumber;
         Assert.Equal("ABC123", body.RegistrationNumber);
         Assert.Equal("customer-a", body.CustomerIdentifier);
         Assert.Equal(ContractCarCategory.SmallCar, body.Category);
@@ -140,8 +140,7 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
     [Fact]
     public async Task Return_returns_400_with_customer_error_code_when_return_time_is_before_pickup()
     {
-        var bookingNumber = NewBookingNumber();
-        await RegisterPickupAsync(bookingNumber, ContractCarCategory.SmallCar, 10000);
+        var bookingNumber = await RegisterPickupAsync(ContractCarCategory.SmallCar, 10000);
         var request = new RegisterReturnRequest(DateTimeOffset.Parse("2026-09-15T09:00:00Z"), 10100, 500m, 2m);
         var response = await PostAsCustomerJsonAsync($"/api/rentals/{bookingNumber}/return", request);
 
@@ -155,8 +154,7 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
     [Fact]
     public async Task Return_returns_400_with_customer_error_code_when_return_odometer_is_lower_than_pickup()
     {
-        var bookingNumber = NewBookingNumber();
-        await RegisterPickupAsync(bookingNumber, ContractCarCategory.SmallCar, 10000);
+        var bookingNumber = await RegisterPickupAsync(ContractCarCategory.SmallCar, 10000);
         var request = new RegisterReturnRequest(DateTimeOffset.Parse("2026-09-15T18:00:00Z"), 9999, 500m, 2m);
         var response = await PostAsCustomerJsonAsync($"/api/rentals/{bookingNumber}/return", request);
 
@@ -206,7 +204,6 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
     private static Task<T?> ReadCustomerJsonAsync<T>(HttpResponseMessage response)
         => response.Content.ReadFromJsonAsync<T>(CustomerJsonOptions);
 
-    private static string NewBookingNumber() => $"TEST-{Guid.NewGuid():N}";
 }
 
 
