@@ -1,4 +1,4 @@
-# Customer Integration Guide
+# Customer Integration Guide 
 
 This is the **single guide customers need to read** to integrate with the Car Rental API.
 
@@ -551,7 +551,7 @@ The API never returns database exceptions, stack traces or internal implementati
 
 ---
 
-# 11. Tests — verify the product yourself
+# 11. Tests — verify the product yourself (This should be documentet maybe somewhere else, this is for demo)
 
 The repository includes tests for the domain, pricing, application service, HTTP API, authentication, tenant isolation, persistence and observability.
 
