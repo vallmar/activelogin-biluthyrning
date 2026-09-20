@@ -14,6 +14,7 @@ namespace CarRental.Tests;
 
 public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
 {
+    // API tests stay at the public HTTP boundary. Shared helpers only prepare requests/authentication; private endpoint methods are not tested directly.
     private static readonly JsonSerializerOptions CustomerJsonOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() }
