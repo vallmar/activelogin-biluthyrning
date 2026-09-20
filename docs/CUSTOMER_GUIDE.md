@@ -289,7 +289,7 @@ Azure SQL Database is the relational-database reference option.
 
 **Important:** the repository does not provision or connect to a real customer Azure SQL database. This section defines the database contract that a customer can provision. We then implement/configure the SQL Server persistence adapter for that tenant.
 
-Azure SQL Database is a managed relational database service. Azure SQL uses firewall rules to control connectivity; Microsoft recommends restricting network access rather than broadly opening the database. citeturn0search0turn0search5
+Azure SQL Database is a managed relational database service. Azure SQL uses firewall rules to control connectivity; Microsoft recommends restricting network access rather than broadly opening the database. See the [Microsoft Azure SQL security guidance](https://learn.microsoft.com/en-us/azure/azure-sql/database/secure-database-tutorial?view=azuresql).
 
 ## 7.1 Create the Azure SQL resource
 
@@ -300,11 +300,9 @@ Create:
 - an Azure SQL Database;
 - a firewall/network configuration that permits the service to connect.
 
-For production, prefer a restricted network path/private connectivity where appropriate. Do not enable broad access simply to make integration easier. Azure SQL's public endpoint is protected by firewall rules and uses port 1433. citeturn0search0turn0search1
+For production, prefer a restricted network path/private connectivity where appropriate. Do not enable broad access simply to make integration easier. Azure SQL's public endpoint is protected by firewall rules and uses port 1433.
 
-Microsoft's current Azure SQL quickstart is here:
-
-urlAzure SQL Database — create a single databasehttps://learn.microsoft.com/en-us/azure/azure-sql/database/single-database-create-quickstart?view=azuresql
+Microsoft's current [Azure SQL Database quickstart](https://learn.microsoft.com/en-us/azure/azure-sql/database/single-database-create-quickstart?view=azuresql) is useful if you prefer the Azure Portal.
 
 ## 7.2 Azure CLI example
 
@@ -349,7 +347,7 @@ az sql server firewall-rule create \
   --end-ip-address "$YOUR_PUBLIC_IP"
 ```
 
-The Azure CLI supports creating the server, database and firewall rule as separate resources. citeturn0search5turn0search6
+The Azure CLI supports creating the server, database and firewall rule as separate resources.
 
 **Do not put passwords into scripts committed to source control.** Use Azure Key Vault or another approved secret-management process.
 
@@ -406,7 +404,7 @@ Server=tcp:<server>.database.windows.net,1433;Initial Catalog=CarRental;User ID=
 
 The actual password must be supplied through a secret-management mechanism, not committed to the repository.
 
-Microsoft recommends encrypted SQL connections and not trusting the server certificate for secure connection strings. citeturn0search0
+Use an encrypted SQL connection and do not trust the server certificate in the connection string.
 
 We then:
 
@@ -491,27 +489,27 @@ The repository includes tests for the domain, pricing, application service, HTTP
 
 ### Full test suite
 
-urlCarRental.Tests — full test projecthttps://github.com/vallmar/activelogin-biluthyrning/tree/feature/customer-persistence-providers/tests/CarRental.Tests
+[CarRental.Tests — full test project](https://github.com/vallmar/activelogin-biluthyrning/tree/feature/customer-persistence-providers/tests/CarRental.Tests)
 
 ### API integration tests
 
-urlAPI integration testshttps://github.com/vallmar/activelogin-biluthyrning/blob/feature/customer-persistence-providers/tests/CarRental.Tests/ApiIntegrationTests.cs
+[API integration tests](https://github.com/vallmar/activelogin-biluthyrning/blob/feature/customer-persistence-providers/tests/CarRental.Tests/ApiIntegrationTests.cs)
 
 ### Persistence tests
 
-urlPersistence provider testshttps://github.com/vallmar/activelogin-biluthyrning/blob/feature/customer-persistence-providers/tests/CarRental.Tests/PersistenceStoreTests.cs
+[Persistence provider tests](https://github.com/vallmar/activelogin-biluthyrning/blob/feature/customer-persistence-providers/tests/CarRental.Tests/PersistenceStoreTests.cs)
 
 ### Rental/application tests
 
-urlRental service testshttps://github.com/vallmar/activelogin-biluthyrning/blob/feature/customer-persistence-providers/tests/CarRental.Tests/RentalServiceTests.cs
+[Rental service tests](https://github.com/vallmar/activelogin-biluthyrning/blob/feature/customer-persistence-providers/tests/CarRental.Tests/RentalServiceTests.cs)
 
 ### Domain tests
 
-urlRental domain testshttps://github.com/vallmar/activelogin-biluthyrning/blob/feature/customer-persistence-providers/tests/CarRental.Tests/RentalTests.cs
+[Rental domain tests](https://github.com/vallmar/activelogin-biluthyrning/blob/feature/customer-persistence-providers/tests/CarRental.Tests/RentalTests.cs)
 
 ### Pricing tests
 
-urlPricing testshttps://github.com/vallmar/activelogin-biluthyrning/blob/feature/customer-persistence-providers/tests/CarRental.Tests/PriceCalculatorTests.cs
+[Pricing tests](https://github.com/vallmar/activelogin-biluthyrning/blob/feature/customer-persistence-providers/tests/CarRental.Tests/PriceCalculatorTests.cs)
 
 Run the suite locally with:
 
