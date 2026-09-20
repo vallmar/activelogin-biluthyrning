@@ -253,7 +253,7 @@ Content-Type: application/json
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `bookingNumber` | path string | Yes | Booking to return within the authenticated tenant. |
+| `bookingNumber` | path string | Yes | Globally unique booking number to return. |
 | `returnTime` | ISO-8601 timestamp | Yes | Return time. Cannot be before pickup time. |
 | `returnOdometer` | integer | Yes | Return odometer. Cannot be below pickup odometer. |
 | `baseDailyPrice` | decimal | Yes | Base daily rental price. Must not be negative. |
