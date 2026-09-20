@@ -21,6 +21,7 @@ The public API returns a stable machine-readable `errorCode` together with a cus
 
 | Error code | HTTP status | Endpoint/context | Meaning |
 |---|---:|---|---|
+| `AUTH_INVALID_INPUT` | 400 | `POST /oauth/token` | The authentication request input is missing or invalid. |
 | `AUTH_INVALID_CREDENTIALS` | 401 | `POST /oauth/token` | The supplied authentication credentials were rejected. |
 | `AUTH_REQUIRED` | 401 | Authenticated rental endpoints | A valid tenant access token is required. |
 | `PICKUP_INVALID_INPUT` | 400 | `POST /api/rentals/pickup` | The pickup request contains input that cannot be accepted. |
