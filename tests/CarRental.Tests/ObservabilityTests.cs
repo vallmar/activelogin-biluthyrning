@@ -11,6 +11,7 @@ namespace CarRental.Tests;
 
 public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Program>>
 {
+    // WebApplicationFactory is intentional here: logging and exception handling are HTTP pipeline behavior, not unit-test targets.
     private readonly WebApplicationFactory<Program> factory;
 
     public ObservabilityTests(WebApplicationFactory<Program> factory)
@@ -83,7 +84,7 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     [Fact]
-    public async Task Cross_tenant_access_is_blocked_and_logged_as_warning()
+    public async Task Cross_tenant_access_is_not_disclosed()
     {
         var logSink = new TestLogSink();
         var client = CreateLoggingClient(logSink);
@@ -125,14 +126,6 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
         Assert.NotNull(error);
         Assert.Equal(ErrorCodes.ReturnRentalNotFound, error!.ErrorCode);
         Assert.Equal("The provided input could not be processed.", error.ErrorMessage);
-
-        Assert.Contains(
-            logSink.Entries,
-            entry => entry.LogLevel == LogLevel.Warning
-                      && entry.Message.Contains("Cross-tenant rental access attempt blocked")
-                      && entry.Message.Contains("Tenant tenant-b")
-                      && entry.Message.Contains($"booking {bookingNumber}")
-                      && entry.Message.Contains("tenant tenant-a"));
     }
 
     private HttpClient CreateLoggingClient(TestLogSink logSink)

@@ -35,6 +35,8 @@ appsettings.Local.json
 # Customer sample runtime data
 customers/CustomerA.JsonConsole/*.json
 
+src/CarRental.Api/data/
+
 # Database / container local state
 *.db
 *.db-shm

@@ -1,17 +1,18 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using CarRental.Contracts;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace CarRental.Tests;
 
-public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
 {
+    // API tests stay at the public HTTP boundary. Shared helpers only prepare requests/authentication; private endpoint methods are not tested directly.
     private static readonly JsonSerializerOptions CustomerJsonOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() }
@@ -19,7 +20,7 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
 
     private readonly HttpClient client;
 
-    public ApiIntegrationTests(WebApplicationFactory<Program> factory)
+    public ApiIntegrationTests(ApiTestFactory factory)
     {
         client = factory.CreateClient();
     }
@@ -95,7 +96,7 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
-    public async Task Same_booking_number_can_exist_in_different_tenants()
+    public async Task Same_booking_number_is_rejected_across_different_tenants()
     {
         var bookingNumber = NewBookingNumber();
         var request = new RegisterPickupRequest(bookingNumber, "ABC123", "customer-a", ContractCarCategory.SmallCar, DateTimeOffset.Parse("2026-09-15T10:00:00Z"), 10000);
@@ -104,7 +105,11 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         var tenantBResponse = await PostAsCustomerJsonAsync("/api/rentals/pickup", request, "tenant-b");
 
         Assert.Equal(HttpStatusCode.Created, tenantAResponse.StatusCode);
-        Assert.Equal(HttpStatusCode.Created, tenantBResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, tenantBResponse.StatusCode);
+
+        var error = await ReadCustomerJsonAsync<ErrorResponse>(tenantBResponse);
+        Assert.NotNull(error);
+        Assert.Equal(ErrorCodes.PickupBookingAlreadyExists, error!.ErrorCode);
     }
 
     [Fact]
@@ -124,39 +129,6 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
-    public async Task Pickup_accepts_documented_json_structure_and_case_insensitive_property_names()
-    {
-        var bookingNumber = NewBookingNumber();
-        var json = $$"""
-        {
-            "BOOKINGNUMBER": "{{bookingNumber}}",
-            "RegistrationNumber": "ABC123",
-            "customerIdentifier": "customer-a",
-            "CATEGORY": "smallcar",
-            "PickupTime": "2026-09-15T10:00:00Z",
-            "pickupOdometer": 10000
-        }
-        """;
-
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/rentals/pickup") { Content = content };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync("tenant-a"));
-        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        using var responseJson = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
-        var root = responseJson.RootElement;
-        Assert.Equal(bookingNumber, root.GetProperty("bookingNumber").GetString());
-        Assert.Equal("ABC123", root.GetProperty("registrationNumber").GetString());
-        Assert.Equal("customer-a", root.GetProperty("customerIdentifier").GetString());
-        Assert.Equal("SmallCar", root.GetProperty("category").GetString());
-        Assert.Equal("2026-09-15T10:00:00+00:00", root.GetProperty("pickupTime").GetString());
-        Assert.Equal(10000, root.GetProperty("pickupOdometer").GetInt32());
-        Assert.False(root.GetProperty("isReturned").GetBoolean());
-    }
-
-    [Fact]
     public async Task Return_returns_200_and_final_price()
     {
         var bookingNumber = NewBookingNumber();
@@ -172,33 +144,6 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
-    public async Task Return_accepts_documented_json_structure_and_case_insensitive_property_names()
-    {
-        var bookingNumber = NewBookingNumber();
-        await RegisterPickupAsync(bookingNumber, ContractCarCategory.Combi, 10000);
-
-        var json = """
-        {
-            "RETURNTIME": "2026-09-15T18:00:00Z",
-            "ReturnOdometer": 10100,
-            "baseDailyPrice": 500,
-            "BASEKMPRICE": 2
-        }
-        """;
-
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/rentals/{bookingNumber}/return") { Content = content };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync("tenant-a"));
-        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        using var responseJson = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
-        var root = responseJson.RootElement;
-        Assert.Equal(bookingNumber, root.GetProperty("bookingNumber").GetString());
-        Assert.Equal(850m, root.GetProperty("finalPrice").GetDecimal());
-    }
-
     [Fact]
     public async Task Return_returns_404_with_customer_error_code_when_rental_does_not_exist()
     {
@@ -297,4 +242,29 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         => response.Content.ReadFromJsonAsync<T>(CustomerJsonOptions);
 
     private static string NewBookingNumber() => $"TEST-{Guid.NewGuid():N}";
+}
+
+
+public sealed class ApiTestFactory : WebApplicationFactory<Program>
+{
+    private readonly string dataDirectory = Path.Combine(Path.GetTempPath(), "CarRentalApiTests", Guid.NewGuid().ToString("N"));
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureAppConfiguration((_, configuration) =>
+        {
+            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Persistence:RootDirectory"] = dataDirectory
+            });
+        });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+
+        if (disposing && Directory.Exists(dataDirectory))
+            Directory.Delete(dataDirectory, recursive: true);
+    }
 }

@@ -4,11 +4,16 @@
 
 This project demonstrates a small car-rental SaaS with a clear separation between the SaaS itself and its customers.
 
-The architecture is intentionally simple. It should be possible to explain the important boundaries without relying on a large number of frameworks or patterns.
+The key idea is that **each customer can choose its persistence technology**. The SaaS owns the business API and rental rules, while a tenant-specific persistence adapter owns how that tenant's rental data is stored.
+
+The reference implementation ships with two deliberately different base cases:
+
+- JSON - straightforward JSON files.
+- PDF - every pickup and return is persisted as a PDF document.
+
+A customer that needs PostgreSQL, SQL Server, S3, an ERP, or another storage technology can be added as a separate IRentalStore implementation. This is the intended commercial extension point: **manual persistence integration is a service, not a reason to complicate the core application.**
 
 ## System boundary
-
-The HTTP API is the product boundary.
 
 ```text
 Customer A ─────HTTP─────┐
@@ -16,142 +21,195 @@ Customer B ─────HTTP─────┤
                          ▼
                     CarRental.Api
                          │
-                  ┌──────┴──────┐
-                  ▼             ▼
-             Application     Contracts
-                  │
-                  ▼
-                Domain
-                  ▲
-                  │
-           Infrastructure
+                  JWT authentication
+                         │
+                    tenantId
+                         │
+                  RentalService
+                         │
+                  IRentalStoreResolver
+                         │
+             ┌───────────┴───────────┐
+             ▼                       ▼
+       Customer A store        Customer B store
+          PDF files              JSON files
 ```
 
-Customers are external systems. Their storage, UI, and application models are their own concerns.
+Customers are external systems. Their UI and application models remain their own concerns.
 
 ## Projects
 
-### `CarRental.Domain`
+### CarRental.Domain
 
 Contains the core business model and business rules.
 
 - No project references.
 - Must not depend on HTTP, databases, ASP.NET Core, or customer applications.
-- Business rules should remain testable without infrastructure.
-- A rental carries its owning `TenantId` so tenant ownership is part of the persisted aggregate, not merely an HTTP concern.
+- Business rules remain testable without infrastructure.
+- A rental carries its owning TenantId as part of the persisted aggregate.
 
-### `CarRental.Application`
+### CarRental.Application
 
-Coordinates application use cases and defines ports where the application needs external capabilities.
+Coordinates application use cases and defines the persistence boundary.
 
-- Depends on `CarRental.Domain`.
-- Does not depend on ASP.NET Core or a specific persistence technology.
-- `IRentalRepository` is an application persistence boundary.
-- `ITenantContext` is the application boundary for tenant identity established by the authentication/transport layer.
-- Rental lookups are always scoped through the current tenant context.
-- A narrowly scoped ownership lookup exists for auditing a failed cross-tenant access attempt.
+- Depends on CarRental.Domain.
+- Does not depend on ASP.NET Core or a persistence technology.
+- IRentalStore is the persistence port.
+- IRentalStoreResolver selects the store for the authenticated tenant.
+- The tenant ID is passed explicitly into application operations.
 
-### `CarRental.Infrastructure`
+The important abstraction is therefore not one global repository, but:
 
-Contains implementations of infrastructure concerns such as persistence.
+```text
+tenant
+  ↓
+tenant-specific store
+```
 
-- Depends on `CarRental.Application`.
-- Implements application-defined ports.
-- Infrastructure choices must not leak into the Domain.
-- The in-memory repository keys rentals by `(TenantId, BookingNumber)` to demonstrate tenant isolation at the persistence boundary.
+This makes different customers genuinely capable of using different persistence technologies.
 
-### `CarRental.Api`
+### CarRental.Infrastructure
 
-The HTTP entry point and composition boundary for the SaaS.
+Contains persistence implementations and the resolver.
 
-- Depends on `CarRental.Application`, `CarRental.Infrastructure`, and `CarRental.Contracts`.
+Current implementations:
+
+```text
+JsonRentalStore
+PdfRentalStore
+ConfiguredRentalStoreResolver
+```
+
+JsonRentalStore stores a rental as JSON.
+
+PdfRentalStore stores pickup and return snapshots as separate PDF documents. The PDF document metadata contains the machine-readable rental snapshot, while the visible page contains a human-readable rental summary. This makes the PDF itself the source of truth for this deliberately unusual showcase persistence implementation.
+
+The PDF implementation uses PDFsharp Core, which supports .NET 8 and cross-platform .NET deployments.
+
+### CarRental.Api
+
+The HTTP entry point and composition boundary.
+
 - Validates JWT bearer access tokens.
-- Derives tenant identity from the trusted `client_id` claim and populates `ITenantContext`.
-- Translates HTTP requests into application operations.
-- Translates application/domain results into customer-facing HTTP responses.
-- Must not expose internal domain objects as the public API contract.
+- Reads tenant identity from the trusted client_id claim.
+- Passes the tenant ID explicitly into RentalService.
+- Does not contain persistence-specific logic.
+- Configures which persistence provider each tenant receives.
 
-The repository contains a deliberately small `/oauth/token` showcase endpoint so the project can demonstrate the complete token flow without an external identity provider. It is explicitly development/demo infrastructure, not production authentication.
+### CarRental.Contracts
 
-### `CarRental.Contracts`
+Contains the public HTTP request/response DTOs and public enum values.
 
-Contains the public HTTP API request/response DTOs and public enum values.
+Tenant identity is intentionally not part of these JSON DTOs; it comes from authentication.
 
-This project represents a customer-visible contract. Changes require corresponding API documentation and contract/integration tests.
+### CarRental.Tests
 
-Contracts are deliberately separate from the Domain so internal domain changes do not automatically become API changes.
+Tests domain behaviour, pricing, application orchestration, API contracts, authentication, tenant isolation, JSON persistence, PDF persistence and observability.
 
-Tenant identity is intentionally not part of these JSON DTOs; it is authentication context.
+## Customer-specific persistence
 
-### `CarRental.Tests`
+This is the important design decision.
 
-Tests the system, including domain behaviour, application behaviour, API contracts, authentication, security isolation, and observability.
+A request does not go through one global repository. It goes through the authenticated tenant and then through the store configured for that tenant.
 
-Architecture rules that can be checked automatically should be enforced here rather than only described in prose.
+```text
+HTTP
+ ↓
+authenticated tenant
+ ↓
+RentalService
+ ↓
+IRentalStoreResolver
+ ↓
+the store configured for that tenant
+```
 
-## Customer applications
+For example:
 
-Customer projects live under `customers/` and are deliberately not part of the SaaS solution.
+```json
+{
+  "Persistence": {
+    "Tenants": {
+      "tenant-a": { "Provider": "pdf" },
+      "tenant-b": { "Provider": "json" }
+    }
+  }
+}
+```
 
-They must:
+Therefore tenant-a uses PdfRentalStore and tenant-b uses JsonRentalStore.
 
-- communicate with the SaaS through HTTP,
-- obtain an access token and send it as request authentication,
-- own their own persistence and customer-specific models,
-- map their own models to/from the public HTTP contract, and
-- remain independent of the SaaS implementation.
+Adding a new customer-specific persistence technology becomes:
 
-A customer must never add a project reference to `CarRental.Domain`, `CarRental.Application`, `CarRental.Infrastructure`, or `CarRental.Api`.
+```text
+1. implement IRentalStore
+2. register the provider name
+3. configure the tenant
+4. add provider tests
+```
 
-The intended mental model is that each customer could be moved into a completely separate repository without changing this architecture.
+The rental domain does not change. The API does not change. The Application service does not change.
+
+## Why the PDF example is intentionally unusual
+
+PDF is not a sensible primary database for a high-volume rental SaaS.
+
+That is exactly why it is a useful reference implementation.
+
+It proves that the application does not secretly depend on SQL, PostgreSQL, Entity Framework or JSON.
+
+Each pickup creates:
+
+```text
+<booking-hash>.pickup.pdf
+```
+
+Each return creates:
+
+```text
+<booking-hash>.return.pdf
+```
+
+The pickup PDF is kept, so both lifecycle events remain visible as documents.
+
+A real customer could instead provide PostgreSQLRentalStore, SqlServerRentalStore, S3RentalStore, SharePointRentalStore or ErpRentalStore without modifying the rental domain.
+
+## Customer integration service
+
+The intended commercial model is:
+
+```text
+Standard SaaS
+    ├── API
+    ├── rental rules
+    ├── authentication
+    └── standard persistence adapters
+
+Customer-specific integration
+    └── custom IRentalStore implementation
+```
+
+If a customer needs every rental written into an existing PostgreSQL database, build CustomerXPostgresRentalStore : IRentalStore and configure that tenant to use it.
+
+That keeps customer-specific complexity at the edge.
 
 ## Dependency rules
 
-The allowed production dependencies are:
+Allowed production dependencies:
 
 ```text
-CarRental.Application  -> CarRental.Domain
+CarRental.Application -> CarRental.Domain
 CarRental.Infrastructure -> CarRental.Application
 CarRental.Api -> CarRental.Application
 CarRental.Api -> CarRental.Infrastructure
 CarRental.Api -> CarRental.Contracts
 ```
 
-No other production project references should be added without an explicit architectural decision.
-
-In particular:
-
-- Domain points to nothing.
-- Application never points to Infrastructure.
-- Domain never points to Application.
-- Contracts never point to Domain/Application/Infrastructure/Api.
-- Customers never reference SaaS projects; they use HTTP.
-
-## Abstraction strategy
-
-The project uses abstractions at real boundaries rather than everywhere.
-
-An abstraction is justified when there is a concrete architectural boundary, multiple implementations, a testing seam, or another requirement that makes substitutability valuable.
-
-This is why a repository port belongs in Application while its implementation belongs in Infrastructure, and why tenant identity has an `ITenantContext` boundary between HTTP authentication context and application use cases.
-
-The architecture should not grow generic repositories, mediator layers, factories, handlers, mapping frameworks, or other indirection without a concrete reason.
-
-## API boundary
-
-The public API has three separate concerns:
-
-1. HTTP transport, authentication and serialization in `CarRental.Api`.
-2. Public DTOs/enums in `CarRental.Contracts`.
-3. Customer-facing API documentation in `docs/CUSTOMER_API.md`.
-
-Tenant identity is a transport/authentication concern: it is carried by a validated bearer token but is not included in the JSON business payload.
-
-These must remain aligned. A public JSON or HTTP change is not complete until the contract, implementation, tests, and documentation agree.
+Domain points to nothing. Application never points to Infrastructure. Domain never points to Application. Contracts never point to Domain/Application/Infrastructure/Api. Customers never reference SaaS projects; they use HTTP.
 
 ## Authentication and tenant isolation
 
-The intended request flow is:
+The request flow is:
 
 ```text
 Authorization: Bearer <JWT>
@@ -163,41 +221,55 @@ ASP.NET JWT bearer validation
 ClaimsPrincipal.client_id
           │
           ▼
-TenantContextMiddleware
+RentalService(tenantId, ...)
           │
           ▼
-ITenantContext
+IRentalStoreResolver.Resolve(tenantId)
           │
           ▼
-RentalService
-          │
-          ▼
-IRentalRepository(tenantId, bookingNumber)
-          │
-          ▼
-Tenant-scoped persistence
+Tenant-specific persistence
 ```
 
-The API validates the token's signature, issuer, audience and lifetime before trusting the `client_id` claim. The application does not know that JWT exists; it only knows the tenant context.
+There is deliberately no ITenantContext or tenant middleware in the Application flow.
 
-Tenant isolation is implemented at the persistence boundary. The same booking number may exist independently for multiple tenants. A tenant-scoped lookup therefore cannot accidentally return another tenant's rental.
+The tenant is visible at the call site, for example service.RegisterPickupAsync(tenantId, ...). This is simpler for the current application and makes the security-critical dependency explicit.
 
-If the requested booking is missing for the current tenant, the application performs a narrow ownership check. If another tenant owns the booking, it logs a security-relevant warning and still returns `404 Not Found` to the caller. This avoids disclosing the other tenant's data while giving operators evidence of a possible cross-tenant access attempt.
+## Persistence and tenant isolation
+
+Each store instance is scoped to one tenant directory.
+
+The store API therefore does not accept a tenant ID:
+
+```csharp
+store.GetAsync(bookingNumber)
+```
+
+The resolver has already selected the correct tenant-specific store.
+
+This is an important safety property: the Application chooses the tenant store once, and the store cannot accidentally query another tenant.
 
 ## Observability
 
-Observability is part of the operational architecture, not an afterthought.
+The service uses ILogger with a simple daily file provider for this showcase. Unexpected exceptions are logged at Error level. Rejected HTTP requests are logged at Warning level.
 
-The baseline answers:
+Persistence adapters should also log enough context to diagnose storage failures without logging secrets or bearer tokens.
 
-- What request/operation was being handled?
-- Did it succeed or fail?
-- Was the failure an expected business/API failure or an unexpected application failure?
-- If unexpected, is there enough context in the logs to diagnose it?
-- Did an authenticated tenant attempt to access data owned by another tenant?
+## Future production evolution
 
-The service uses the built-in `ILogger` abstraction with a deliberately simple file provider for the current project. Application logs are written under `.log/` in the API content root, with one file per local calendar day named `car-rental-yyyy-MM-dd.log`.
+The current adapters are deliberately simple.
 
-Unexpected exceptions are logged at Error level with the exception. Rejected HTTP requests (`400`-`499`) are logged at Warning level with status, tenant (or anonymous), method and path. Blocked cross-tenant access is logged at Warning level with tenant and booking context. Secrets and bearer tokens are never logged.
+For production, a database-backed store should add:
 
-The `.log/` directory is local runtime state and is excluded from source control. More advanced telemetry should be introduced only when there is a concrete operational need.
+```text
+database uniqueness constraint
+concurrency control
+transactions
+durable migrations
+backup
+retry policy
+idempotency
+```
+
+The Application and Domain layers should not need to know whether the customer uses JSON, PDF, PostgreSQL, SQL Server, S3 or an ERP.
+
+That is the point of the persistence boundary.

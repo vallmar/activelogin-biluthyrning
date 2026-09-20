@@ -1,89 +1,97 @@
 # Car Rental SaaS Reference Architecture
 
-This repository is a reference implementation of a car-rental SaaS.
+This repository is a reference implementation of a small car-rental SaaS.
 
-The point is not to build a large rental system. The point is to keep the rental business rules small, testable and independent from customer UI and persistence choices while demonstrating realistic API, authentication and tenant-isolation boundaries.
+## Customer documentation
 
-## Architecture
+**Customers only need to read one document:**
+
+[Customer Integration Guide](docs/CUSTOMER_GUIDE.md)
+
+It contains the complete onboarding path:
+
+- authentication;
+- all API endpoints and request/response contracts;
+- all documented error codes;
+- PDF persistence;
+- Azure SQL Database setup;
+- the Azure SQL schema script;
+- connection-string handover;
+- manual persistence integrations;
+- security expectations;
+- links to the automated test suites;
+- production considerations.
+
+## Persistence model
+
+Each tenant resolves to its own persistence adapter:
 
 ```text
- Customer A Console ──HTTP──┐
-                            │
- Customer B App ─────HTTP───┤
-                            ▼
-                       Rental API
-                            │
-                 JWT authentication
-                            │
-                       TenantContext
-                            │
-                      Application
-                            │
-                          Domain
-                            │
-                    Persistence Port
-                            │
-                    ┌───────┴────────┐
-                    ▼                ▼
-                In-memory       Customer DBs
-                  demo          owned by customers
+HTTP API
+   ↓
+JWT authentication
+   ↓
+tenant identity
+   ↓
+RentalService
+   ↓
+IRentalStoreResolver
+   ↓
+IRentalStore
+   ↓
+customer-specific persistence technology
 ```
 
-The important boundary is the HTTP API. Customer applications are consumers of the product; they do not reference the domain assembly. Persistence is an application port, so the core does not know which database is used.
+The two customer-facing reference choices are:
 
-## Authentication and multi-tenancy
+1. **PDF** — we persist pickup and return documents.
+2. **Azure SQL / SQL Server** — the customer owns the relational database and provides a secure connection string; we provide/configure the persistence adapter.
 
-Customer API calls use standard JWT bearer authentication:
+We also offer manual integration for other persistence solutions such as PostgreSQL, Oracle, ERP systems, S3/Azure Blob, REST services, or customer-specific databases.
 
-```http
-Authorization: Bearer <access_token>
-```
+## Developer/reference documentation
 
-The API validates the JWT and derives the tenant from its trusted `client_id` claim. Rental persistence is scoped by `(TenantId, BookingNumber)`.
+The customer guide is the canonical onboarding document. The following documents are supporting engineering references:
 
-For a self-contained showcase, the API includes a tiny `/oauth/token` endpoint that issues demo JWTs for `tenant-a` and `tenant-b`. This is intentionally not a production identity provider; a real deployment would use an OAuth 2.0/OIDC provider.
-
-If an authenticated tenant requests a booking owned by another tenant, the API returns `404 Not Found` without disclosing the booking's existence. The application logs the blocked cross-tenant attempt as a security-relevant warning.
-
-See `docs/CUSTOMER_API.md` for the complete HTTP contract.
+- `docs/ARCHITECTURE.md` — internal architecture.
+- `docs/DECISIONS.md` — architecture decisions.
+- `docs/CUSTOMER_API.md` — detailed API reference retained for developers.
+- `docs/ERROR_CODES.md` — detailed error-code reference retained for developers.
+- `docs/azure-sql-schema.sql` — customer Azure SQL schema script.
 
 ## Main projects
 
-- `src/CarRental.Domain` - rental aggregate, state rules, categories and pricing data.
-- `src/CarRental.Application` - use cases, price calculation, tenant context and persistence port.
-- `src/CarRental.Infrastructure` - reference in-memory persistence adapter for the API.
-- `src/CarRental.Api` - HTTP, JWT authentication and composition boundary.
-- `src/CarRental.Contracts` - public HTTP/JSON contracts.
-- `tests/CarRental.Tests` - xUnit tests for business behaviour, API contracts, authentication, tenant isolation and observability.
+- `src/CarRental.Domain` — rental aggregate, state rules, categories and pricing.
+- `src/CarRental.Application` — use cases, pricing and persistence ports.
+- `src/CarRental.Infrastructure` — persistence adapters and tenant-specific resolver.
+- `src/CarRental.Api` — HTTP, authentication and composition boundary.
+- `src/CarRental.Contracts` — public HTTP/JSON contracts.
+- `tests/CarRental.Tests` — automated verification.
 
-## Customer examples
+## Tests
 
-The customer examples are intentionally separate applications. In a real SaaS deployment they could live in completely separate repositories.
-
-- `customers/CustomerA.JsonConsole` - console frontend + local JSON persistence.
-- `customers/CustomerB.Postgres` - console/API client + PostgreSQL persistence.
-
-They communicate with the SaaS API via HTTP, obtain JWT access tokens, and map their own storage models to/from API contracts.
-
-## Design choices
-
-- No UI framework is required by the core.
-- No database technology is required by the core.
-- The API is the product boundary for customer frontends.
-- `IRentalRepository` is a port; concrete adapters belong outside the core.
-- JWT authentication is handled at the API boundary; the Application layer only sees `ITenantContext`.
-- Cross-tenant access attempts are logged without exposing the other tenant to the caller.
-- No CQRS, MediatR, event sourcing or elaborate tenant framework has been added because the project does not justify them.
-
-## Assignment assumptions
-
-See `docs/ASSUMPTIONS.md`. The original assignment explicitly allows assumptions where the specification is unclear.
-
-## Run
+Run the complete suite with:
 
 ```bash
 dotnet test
-dotnet run --project src/CarRental.Api
 ```
 
-The development JWT signing key is in `appsettings.Development.json` and is deliberately a non-production showcase key. Replace it with a real secret/key-management solution for any real deployment.
+Customers can inspect the tests directly from the [Customer Integration Guide](docs/CUSTOMER_GUIDE.md).
+
+## Design principle
+
+Keep the business core stable and put customer-specific persistence complexity at the edge:
+
+```text
+API
+ ↓
+RentalService
+ ↓
+Rental Domain
+ ↓
+IRentalStore
+ ↓
+customer technology
+```
+
+That allows different customers to use different persistence technologies without changing the public API or business rules.

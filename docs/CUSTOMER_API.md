@@ -46,7 +46,7 @@ The local `/oauth/token` endpoint exists only to make this repository self-conta
 
 Tenant isolation is part of the application behaviour:
 
-- the same booking number may exist in different tenants;
+- the booking numbers are globally unique across the entire API;
 - rental lookups are always scoped to the authenticated tenant;
 - a tenant cannot return or modify another tenant's rental;
 - an attempt to access another tenant's known booking returns `404 Not Found`, so the API does not disclose that the booking exists for another tenant;
@@ -170,7 +170,7 @@ Content-Type: application/json
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `bookingNumber` | string | Yes | Customer's booking identifier. Unique within the authenticated tenant. |
+| `bookingNumber` | string | Yes | Customer's booking identifier. Globally unique across the entire API. |
 | `registrationNumber` | string | Yes | Vehicle registration number. |
 | `customerIdentifier` | string | Yes | Identifier for the customer making the rental. |
 | `category` | string | Yes | `SmallCar`, `Combi`, or `Truck`. |
@@ -253,7 +253,7 @@ Content-Type: application/json
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `bookingNumber` | path string | Yes | Booking to return within the authenticated tenant. |
+| `bookingNumber` | path string | Yes | Globally unique booking number to return. |
 | `returnTime` | ISO-8601 timestamp | Yes | Return time. Cannot be before pickup time. |
 | `returnOdometer` | integer | Yes | Return odometer. Cannot be below pickup odometer. |
 | `baseDailyPrice` | decimal | Yes | Base daily rental price. Must not be negative. |
