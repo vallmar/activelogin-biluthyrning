@@ -25,10 +25,10 @@ jobs:
         run: dotnet test CarRental.sln --no-restore --configuration Release
 
       - name: Build Customer A PDF example
-        run: dotnet build customers/CustomerA.PdfConsole/CustomerA.PdfConsole.csproj --no-restore --configuration Release
+        run: dotnet build customers/CustomerA.PdfConsole/CustomerA.PdfConsole.csproj --configuration Release
 
       - name: Build Customer A web example
-        run: dotnet build customers/CustomerA.Web/CustomerA.Web.csproj --no-restore --configuration Release
+        run: dotnet build customers/CustomerA.Web/CustomerA.Web.csproj --configuration Release
 
       - name: Build Customer B Azure SQL example
-        run: dotnet build customers/CustomerB.AzureSql/CustomerB.AzureSql.csproj --no-restore --configuration Release
+        run: dotnet build customers/CustomerB.AzureSql/CustomerB.AzureSql.csproj --configuration Release
