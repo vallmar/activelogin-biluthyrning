@@ -11,6 +11,7 @@ namespace CarRental.Tests;
 
 public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Program>>
 {
+    // WebApplicationFactory is intentional here: logging and exception handling are HTTP pipeline behavior, not unit-test targets.
     private readonly WebApplicationFactory<Program> factory;
 
     public ObservabilityTests(WebApplicationFactory<Program> factory)
