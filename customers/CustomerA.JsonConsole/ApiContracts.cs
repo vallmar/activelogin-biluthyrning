@@ -34,7 +34,6 @@ public sealed class RentalApiClient
         {
             Content = JsonContent.Create(
                 new RegisterPickupRequest(
-                    rental.BookingNumber,
                     rental.RegistrationNumber,
                     rental.CustomerId,
                     rental.Category,
