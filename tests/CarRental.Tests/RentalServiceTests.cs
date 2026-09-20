@@ -15,20 +15,20 @@ public sealed class RentalServiceTests
         var store = new InMemoryRentalStore();
         var service = new RentalService(new TestStoreResolver(store), new InMemoryBookingNumberRegistry(), new PriceCalculator());
 
-        await service.RegisterPickupAsync(
+        var rental = await service.RegisterPickupAsync(
             "tenant-a", "ABC123", "customer-1", CarCategory.Combi,
             DateTimeOffset.Parse("2026-01-01T10:00:00+01:00"), 10_000,
             TestContext.Current.CancellationToken);
 
         var price = await service.RegisterReturnAsync(
-            "tenant-a", "B-1",
+            "tenant-a", rental.BookingNumber,
             DateTimeOffset.Parse("2026-01-03T10:00:00+01:00"), 10_100,
             new Pricing(500m, 2m), TestContext.Current.CancellationToken);
 
         Assert.Equal(1500m, price);
-        var rental = await store.GetAsync("B-1", TestContext.Current.CancellationToken);
-        Assert.NotNull(rental);
-        Assert.Equal(1500m, rental!.FinalPrice);
+        var persistedRental = await store.GetAsync(rental.BookingNumber, TestContext.Current.CancellationToken);
+        Assert.NotNull(persistedRental);
+        Assert.Equal(1500m, persistedRental!.FinalPrice);
     }
 
     // The resolver/store doubles below are deliberate test seams for the application ports; they avoid testing concrete infrastructure from application tests.
@@ -48,14 +48,6 @@ public sealed class RentalServiceTests
     private sealed class TestStoreResolver(IRentalStore store) : IRentalStoreResolver
     {
         public IRentalStore Resolve(string tenantId) => store;
-    }
-
-    private sealed class DictionaryStoreResolver(params (string TenantId, IRentalStore Store)[] entries) : IRentalStoreResolver
-    {
-        private readonly Dictionary<string, IRentalStore> stores =
-            entries.ToDictionary(x => x.TenantId, x => x.Store, StringComparer.Ordinal);
-
-        public IRentalStore Resolve(string tenantId) => stores[tenantId];
     }
 
     private sealed class InMemoryBookingNumberRegistry : IBookingNumberRegistry
