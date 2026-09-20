@@ -6,10 +6,14 @@ This project demonstrates a small car-rental SaaS with a clear separation betwee
 
 The key idea is that **each customer can choose its persistence technology**. The SaaS owns the business API and rental rules, while a tenant-specific persistence adapter owns how that tenant's rental data is stored.
 
-The reference implementation ships with two deliberately different base cases:
+The customer-facing reference architecture has two deliberately different base cases:
 
-- JSON - straightforward JSON files.
-- PDF - every pickup and return is persisted as a PDF document.
+- **PDF** - every pickup and return is persisted as a PDF document.
+- **Azure SQL Database** - relational persistence using the documented SQL schema.
+
+Azure SQL is currently a **reference/demo integration contract in this repository**, not a live connected provider. It demonstrates how the relational option is provisioned and integrated without pretending that a customer database already exists.
+
+The repository also contains a lightweight **JSON persistence adapter for automated tests and local infrastructure examples**. JSON is not one of the two customer-facing persistence choices.
 
 A customer that needs PostgreSQL, SQL Server, S3, an ERP, or another storage technology can be added as a separate IRentalStore implementation. This is the intended commercial extension point: **manual persistence integration is a service, not a reason to complicate the core application.**
 
@@ -32,7 +36,7 @@ Customer B ─────HTTP─────┤
              ┌───────────┴───────────┐
              ▼                       ▼
        Customer A store        Customer B store
-          PDF files              JSON files
+          PDF files             Azure SQL
 ```
 
 Customers are external systems. Their UI and application models remain their own concerns.
@@ -72,7 +76,7 @@ This makes different customers genuinely capable of using different persistence 
 
 Contains persistence implementations and the resolver.
 
-Current implementations:
+Current infrastructure contains:
 
 ```text
 JsonRentalStore
@@ -80,7 +84,11 @@ PdfRentalStore
 ConfiguredRentalStoreResolver
 ```
 
-JsonRentalStore stores a rental as JSON.
+PdfRentalStore is the customer-facing PDF reference implementation.
+
+The Azure SQL option is documented as the customer-facing relational reference contract in `docs/azure-sql-schema.sql`; a live SQL provider is deliberately not shipped in this showcase.
+
+JsonRentalStore is retained as a lightweight local/test adapter and is not presented as a customer persistence choice.
 
 PdfRentalStore stores pickup and return snapshots as separate PDF documents. The PDF document metadata contains the machine-readable rental snapshot, while the visible page contains a human-readable rental summary. This makes the PDF itself the source of truth for this deliberately unusual showcase persistence implementation.
 
@@ -137,7 +145,7 @@ For example:
 }
 ```
 
-Therefore tenant-a uses PdfRentalStore and tenant-b uses JsonRentalStore.
+Therefore the customer-facing example is tenant-a using PDF and tenant-b using Azure SQL. The Azure SQL configuration is illustrative in this repository; it requires the SQL adapter to be implemented/configured before it can run against a real database.
 
 Adding a new customer-specific persistence technology becomes:
 
