@@ -4,6 +4,8 @@ using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+
 var apiUrl = builder.Configuration["RentalApiUrl"]
     ?? Environment.GetEnvironmentVariable("RENTAL_API_URL")
     ?? "http://localhost:5000";
@@ -70,10 +72,10 @@ app.MapPost("/send", async (
                     statusCode: (int)tokenResponse.StatusCode);
             }
 
-            var token = JsonSerializer.Deserialize<TokenResponse>(tokenBody);
+            var token = JsonSerializer.Deserialize<TokenResponse>(tokenBody, jsonOptions);
             if (string.IsNullOrWhiteSpace(token?.AccessToken))
             {
-                return Results.StatusCode(StatusCodes.Status502BadGateway);
+                return Results.Problem(\n                    detail: "The rental API returned a successful token response, but the access token could not be read.",\n                    statusCode: StatusCodes.Status502BadGateway);
             }
 
             var path = request.Method == "pickup"
