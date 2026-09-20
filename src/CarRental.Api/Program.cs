@@ -60,6 +60,7 @@ builder.Services.AddSingleton<IRentalStoreResolver>(sp =>
     new ConfiguredRentalStoreResolver(
         sp.GetRequiredService<IConfiguration>(),
         sp.GetRequiredService<IHostEnvironment>().ContentRootPath));
+builder.Services.AddSingleton<PriceCalculator>();
 builder.Services.AddScoped<RentalService>();
 
 var app = builder.Build();
