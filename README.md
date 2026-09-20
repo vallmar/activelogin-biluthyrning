@@ -45,7 +45,7 @@ customer-specific persistence technology
 The two customer-facing reference choices are:
 
 1. **PDF** — we persist pickup and return documents.
-2. **Azure SQL / SQL Server** — the customer owns the relational database and provides a secure connection string; we provide/configure the persistence adapter.
+2. **Azure SQL Database** — the customer owns the relational database and provides a secure connection string; we provide/configure the persistence adapter.
 
 We also offer manual integration for other persistence solutions such as PostgreSQL, Oracle, ERP systems, S3/Azure Blob, REST services, or customer-specific databases.
 
