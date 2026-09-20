@@ -13,8 +13,6 @@ The customer-facing reference architecture has two deliberately different base c
 
 Azure SQL is currently a **reference/demo integration contract in this repository**, not a live connected provider. It demonstrates how the relational option is provisioned and integrated without pretending that a customer database already exists.
 
-The repository also contains a lightweight **JSON persistence adapter for automated tests and local infrastructure examples**. JSON is not one of the two customer-facing persistence choices.
-
 A customer that needs PostgreSQL, SQL Server, S3, an ERP, or another storage technology can be added as a separate IRentalStore implementation. This is the intended commercial extension point: **manual persistence integration is a service, not a reason to complicate the core application.**
 
 ## System boundary
@@ -79,7 +77,6 @@ Contains persistence implementations and the resolver.
 Current infrastructure contains:
 
 ```text
-JsonRentalStore
 PdfRentalStore
 ConfiguredRentalStoreResolver
 ```
@@ -87,8 +84,6 @@ ConfiguredRentalStoreResolver
 PdfRentalStore is the customer-facing PDF reference implementation.
 
 The Azure SQL option is documented as the customer-facing relational reference contract in `docs/azure-sql-schema.sql`; a live SQL provider is deliberately not shipped in this showcase.
-
-JsonRentalStore is retained as a lightweight local/test adapter and is not presented as a customer persistence choice.
 
 PdfRentalStore stores pickup and return snapshots as separate PDF documents. The PDF document metadata contains the machine-readable rental snapshot, while the visible page contains a human-readable rental summary. This makes the PDF itself the source of truth for this deliberately unusual showcase persistence implementation.
 
@@ -112,7 +107,7 @@ Tenant identity is intentionally not part of these JSON DTOs; it comes from auth
 
 ### CarRental.Tests
 
-Tests domain behaviour, pricing, application orchestration, API contracts, authentication, tenant isolation, JSON persistence, PDF persistence and observability.
+Tests domain behaviour, pricing, application orchestration, API contracts, authentication, tenant isolation, PDF persistence and observability.
 
 ## Customer-specific persistence
 
@@ -164,7 +159,7 @@ PDF is not a sensible primary database for a high-volume rental SaaS.
 
 That is exactly why it is a useful reference implementation.
 
-It proves that the application does not secretly depend on SQL, PostgreSQL, Entity Framework or JSON.
+It proves that the application does not secretly depend on a relational database, Entity Framework or another database technology.
 
 Each pickup creates:
 
@@ -278,6 +273,6 @@ retry policy
 idempotency
 ```
 
-The Application and Domain layers should not need to know whether the customer uses JSON, PDF, PostgreSQL, SQL Server, S3 or an ERP.
+The Application and Domain layers should not need to know whether the customer uses PDF, Azure SQL, PostgreSQL, SQL Server, S3 or an ERP.
 
 That is the point of the persistence boundary.
