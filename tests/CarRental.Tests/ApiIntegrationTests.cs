@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using CarRental.Contracts;
 using Microsoft.AspNetCore.Hosting;
@@ -143,7 +144,6 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
         Assert.Equal(850m, body.FinalPrice);
     }
 
-    [Fact]
     [Fact]
     public async Task Return_returns_404_with_customer_error_code_when_rental_does_not_exist()
     {
