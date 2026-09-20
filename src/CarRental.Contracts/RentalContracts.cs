@@ -8,7 +8,6 @@ public enum ContractCarCategory
 }
 
 public sealed record RegisterPickupRequest(
-    string BookingNumber,
     string RegistrationNumber,
     string CustomerIdentifier,
     ContractCarCategory Category,
