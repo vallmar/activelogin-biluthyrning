@@ -49,8 +49,8 @@ public sealed class RentalServiceTests
                 "tenant-b", "B-1", "XYZ789", "customer-b", CarCategory.Truck,
                 DateTimeOffset.UtcNow, 20_000, TestContext.Current.CancellationToken));
 
-        Assert.NotNull(await tenantAStore.GetAsync("B-1"));
-        Assert.Null(await tenantBStore.GetAsync("B-1"));
+        Assert.NotNull(await tenantAStore.GetAsync("B-1", TestContext.Current.CancellationToken));
+        Assert.Null(await tenantBStore.GetAsync("B-1", TestContext.Current.CancellationToken));
     }
 
     // The resolver/store doubles below are deliberate test seams for the application ports; they avoid testing concrete infrastructure from application tests.
