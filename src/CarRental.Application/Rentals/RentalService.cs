@@ -22,7 +22,7 @@ public sealed class RentalService(
         var store = storeResolver.Resolve(tenantId);
 
         if (!await bookingNumberRegistry.TryReserveAsync(bookingNumber, tenantId, cancellationToken))
-            throw new InvalidOperationException("Booking number is already in use.");
+            throw new BookingNumberAlreadyExistsException(bookingNumber);
 
         var rental = new Rental(
             tenantId,
