@@ -49,6 +49,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddSingleton<IBookingNumberRegistry>(sp =>
+    new FileBookingNumberRegistry(
+        Path.Combine(
+            sp.GetRequiredService<IHostEnvironment>().ContentRootPath,
+            sp.GetRequiredService<IConfiguration>()["Persistence:RootDirectory"] ?? "data",
+            "booking-numbers.json")));
+
 builder.Services.AddSingleton<IRentalStoreResolver>(sp =>
     new ConfiguredRentalStoreResolver(
         sp.GetRequiredService<IConfiguration>(),
