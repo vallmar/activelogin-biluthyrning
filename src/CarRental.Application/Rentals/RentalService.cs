@@ -11,7 +11,6 @@ public sealed class RentalService(
 {
     public async Task<Rental> RegisterPickupAsync(
         string tenantId,
-        string bookingNumber,
         string registrationNumber,
         string customerIdentifier,
         CarCategory category,
@@ -20,6 +19,7 @@ public sealed class RentalService(
         CancellationToken cancellationToken = default)
     {
         var store = storeResolver.Resolve(tenantId);
+        var bookingNumber = $"R-{Guid.NewGuid():N}";
 
         if (!await bookingNumberRegistry.TryReserveAsync(bookingNumber, tenantId, cancellationToken))
             throw new BookingNumberAlreadyExistsException(bookingNumber);
