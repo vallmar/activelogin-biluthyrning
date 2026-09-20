@@ -27,7 +27,7 @@ The public API returns a stable machine-readable `errorCode` together with a cus
 | `PICKUP_INVALID_INPUT` | 400 | `POST /api/rentals/pickup` | The pickup request contains input that cannot be accepted. |
 | `PICKUP_BOOKING_ALREADY_EXISTS` | 400 | `POST /api/rentals/pickup` | The pickup cannot be registered because the booking is already in use anywhere in the API. |
 | `RETURN_INVALID_INPUT` | 400 | `POST /api/rentals/{bookingNumber}/return` | The return request contains input or a rental state that cannot be accepted. |
-| `RETURN_RENTAL_NOT_FOUND` | 404 | `POST /api/rentals/{bookingNumber}/return` | No rental accessible to the authenticated tenant could be found for the supplied booking reference. The response intentionally does not reveal whether another tenant owns the booking. |
+| `RETURN_RENTAL_NOT_FOUND` | 404 | `POST /api/rentals/{bookingNumber}/return` | No rental accessible to the authenticated tenant could be found for the supplied globally unique booking reference. The response intentionally does not reveal whether another tenant owns the booking. |
 | `INTERNAL_ERROR` | 500 | Any endpoint | An unexpected server-side error occurred. Details are logged internally. |
 
 ## Ownership and message changes
