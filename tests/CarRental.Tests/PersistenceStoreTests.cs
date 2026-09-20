@@ -6,6 +6,7 @@ namespace CarRental.Tests;
 
 public sealed class PersistenceStoreTests
 {
+    // These are adapter contract tests: they verify behavior across the persistence boundary, not private helper methods.
     [Fact]
     public async Task Json_store_survives_a_new_store_instance()
     {
