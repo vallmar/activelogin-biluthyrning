@@ -34,10 +34,10 @@ public sealed class ConfiguredRentalStoreResolver(
 
             IRentalStore store = provider.ToLowerInvariant() switch
             {
-                "json" => new FilePersistence.JsonRentalStore(directory),
                 "pdf" => new FilePersistence.PdfRentalStore(directory),
                 _ => throw new InvalidOperationException(
-                    $"Unknown persistence provider '{provider}' for tenant '{tenantId}'.")
+                    $"Unknown persistence provider '{provider}' for tenant '{tenantId}'. " +
+                    "The showcase ships with PDF persistence; other technologies are customer-specific integrations.")
             };
 
             stores[tenantId] = store;
