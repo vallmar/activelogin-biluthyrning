@@ -29,8 +29,7 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
     [Fact]
     public async Task Pickup_requires_tenant_identity()
     {
-        var bookingNumber = NewBookingNumber();
-        var request = new RegisterPickupRequest(bookingNumber, "ABC123", "customer-a", ContractCarCategory.SmallCar, DateTimeOffset.Parse("2026-09-15T10:00:00Z"), 10000);
+        var request = new RegisterPickupRequest("ABC123", "customer-a", ContractCarCategory.SmallCar, DateTimeOffset.Parse("2026-09-15T10:00:00Z"), 10000);
 
         using var content = JsonContent.Create(request, options: CustomerJsonOptions);
         var response = await client.PostAsync("/api/rentals/pickup", content, TestContext.Current.CancellationToken);
@@ -64,8 +63,7 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
     [Fact]
     public async Task Pickup_returns_201_and_customer_response_contract()
     {
-        var bookingNumber = NewBookingNumber();
-        var request = new RegisterPickupRequest(bookingNumber, "ABC123", "customer-a", ContractCarCategory.SmallCar, DateTimeOffset.Parse("2026-09-15T10:00:00Z"), 10000);
+        var request = new RegisterPickupRequest("ABC123", "customer-a", ContractCarCategory.SmallCar, DateTimeOffset.Parse("2026-09-15T10:00:00Z"), 10000);
         var response = await PostAsCustomerJsonAsync("/api/rentals/pickup", request);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -81,43 +79,9 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
     }
 
     [Fact]
-    public async Task Pickup_returns_400_with_customer_error_code_when_booking_number_is_duplicate()
-    {
-        var bookingNumber = NewBookingNumber();
-        var request = new RegisterPickupRequest(bookingNumber, "ABC123", "customer-a", ContractCarCategory.SmallCar, DateTimeOffset.Parse("2026-09-15T10:00:00Z"), 10000);
-        var firstResponse = await PostAsCustomerJsonAsync("/api/rentals/pickup", request);
-        Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
-
-        var secondResponse = await PostAsCustomerJsonAsync("/api/rentals/pickup", request);
-        Assert.Equal(HttpStatusCode.BadRequest, secondResponse.StatusCode);
-        var error = await ReadCustomerJsonAsync<ErrorResponse>(secondResponse);
-        Assert.NotNull(error);
-        Assert.Equal(ErrorCodes.PickupBookingAlreadyExists, error!.ErrorCode);
-        Assert.Equal("The provided input could not be processed.", error.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task Same_booking_number_is_rejected_across_different_tenants()
-    {
-        var bookingNumber = NewBookingNumber();
-        var request = new RegisterPickupRequest(bookingNumber, "ABC123", "customer-a", ContractCarCategory.SmallCar, DateTimeOffset.Parse("2026-09-15T10:00:00Z"), 10000);
-
-        var tenantAResponse = await PostAsCustomerJsonAsync("/api/rentals/pickup", request, "tenant-a");
-        var tenantBResponse = await PostAsCustomerJsonAsync("/api/rentals/pickup", request, "tenant-b");
-
-        Assert.Equal(HttpStatusCode.Created, tenantAResponse.StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, tenantBResponse.StatusCode);
-
-        var error = await ReadCustomerJsonAsync<ErrorResponse>(tenantBResponse);
-        Assert.NotNull(error);
-        Assert.Equal(ErrorCodes.PickupBookingAlreadyExists, error!.ErrorCode);
-    }
-
-    [Fact]
     public async Task Tenant_cannot_return_another_tenants_rental()
     {
-        var bookingNumber = NewBookingNumber();
-        await RegisterPickupAsync(bookingNumber, ContractCarCategory.Combi, 10000, "tenant-a");
+        var bookingNumber = await RegisterPickupAsync(ContractCarCategory.Combi, 10000, "tenant-a");
 
         var request = new RegisterReturnRequest(DateTimeOffset.Parse("2026-09-15T18:00:00Z"), 10100, 500m, 2m);
         var response = await PostAsCustomerJsonAsync($"/api/rentals/{bookingNumber}/return", request, "tenant-b");
@@ -132,8 +96,7 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
     [Fact]
     public async Task Return_returns_200_and_final_price()
     {
-        var bookingNumber = NewBookingNumber();
-        await RegisterPickupAsync(bookingNumber, ContractCarCategory.Combi, 10000);
+        var bookingNumber = await RegisterPickupAsync(ContractCarCategory.Combi, 10000);
         var request = new RegisterReturnRequest(DateTimeOffset.Parse("2026-09-15T18:00:00Z"), 10100, 500m, 2m);
         var response = await PostAsCustomerJsonAsync($"/api/rentals/{bookingNumber}/return", request);
 
@@ -161,8 +124,7 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
     [Fact]
     public async Task Return_returns_400_with_customer_error_code_when_rental_has_already_been_returned()
     {
-        var bookingNumber = NewBookingNumber();
-        await RegisterPickupAsync(bookingNumber, ContractCarCategory.SmallCar, 10000);
+        var bookingNumber = await RegisterPickupAsync(ContractCarCategory.SmallCar, 10000);
         var request = new RegisterReturnRequest(DateTimeOffset.Parse("2026-09-15T18:00:00Z"), 10100, 500m, 2m);
         var firstResponse = await PostAsCustomerJsonAsync($"/api/rentals/{bookingNumber}/return", request);
         Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
@@ -205,11 +167,14 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
         Assert.Equal("The provided input was invalid.", error.ErrorMessage);
     }
 
-    private async Task RegisterPickupAsync(string bookingNumber, ContractCarCategory category, int odometer, string tenantId = "tenant-a")
+    private async Task<string> RegisterPickupAsync(ContractCarCategory category, int odometer, string tenantId = "tenant-a")
     {
-        var request = new RegisterPickupRequest(bookingNumber, "ABC123", "customer-a", category, DateTimeOffset.Parse("2026-09-15T10:00:00Z"), odometer);
+        var request = new RegisterPickupRequest("ABC123", "customer-a", category, DateTimeOffset.Parse("2026-09-15T10:00:00Z"), odometer);
         var response = await PostAsCustomerJsonAsync("/api/rentals/pickup", request, tenantId);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await ReadCustomerJsonAsync<RegisterPickupResponse>(response);
+        Assert.NotNull(body);
+        return body!.BookingNumber;
     }
 
     private async Task<HttpResponseMessage> PostAsCustomerJsonAsync<T>(string uri, T value, string tenantId = "tenant-a")
