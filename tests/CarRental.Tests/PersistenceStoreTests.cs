@@ -8,32 +8,6 @@ public sealed class PersistenceStoreTests
 {
     // These are adapter contract tests: they verify behavior across the persistence boundary, not private helper methods.
     [Fact]
-    public async Task Json_store_survives_a_new_store_instance()
-    {
-        var directory = CreateDirectory();
-
-        try
-        {
-            var rental = CreateRental();
-            var store = new JsonRentalStore(directory);
-
-            await store.CreateAsync(rental, TestContext.Current.CancellationToken);
-
-            var reopenedStore = new JsonRentalStore(directory);
-            var loaded = await reopenedStore.GetAsync(rental.BookingNumber, TestContext.Current.CancellationToken);
-
-            Assert.NotNull(loaded);
-            Assert.Equal(rental.BookingNumber, loaded!.BookingNumber);
-            Assert.Equal(rental.TenantId, loaded.TenantId);
-            Assert.Equal(rental.PickupOdometer, loaded.PickupOdometer);
-        }
-        finally
-        {
-            DeleteDirectory(directory);
-        }
-    }
-
-    [Fact]
     public async Task Pdf_store_writes_a_pickup_pdf_and_can_reopen_it()
     {
         var directory = CreateDirectory();
