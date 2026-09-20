@@ -4,7 +4,8 @@ namespace CarRental.Application.Ports;
 
 /// <summary>
 /// Persistence contract for one customer/tenant.
-/// The implementation can be JSON, PDF, PostgreSQL, SQL Server, or a customer-specific adapter.
+/// The shipped reference implementation uses PDF documents.
+/// Other technologies are added as customer-specific adapters behind this contract.
 /// </summary>
 public interface IRentalStore
 {
