@@ -206,7 +206,9 @@ $("#send").addEventListener("click", async () => {
 
     const data = await response.json();
 
-    const success = data.statusCode >= 200 && data.statusCode < 300;
+    // /send preserves the rental API status code, while data.statusCode
+    // tells us which upstream status was returned.
+    const success = response.ok && data.statusCode >= 200 && data.statusCode < 300;
     $("#status").className = "status " + (success ? "ok" : "bad");
     $("#status").textContent = data.statusCode + " " + (success ? "Success" : "Error");
     $("#response").textContent = JSON.stringify(data.responseJson ?? data, null, 2);
