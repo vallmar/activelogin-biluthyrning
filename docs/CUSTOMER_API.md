@@ -170,7 +170,7 @@ Content-Type: application/json
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `bookingNumber` | string | Yes | Customer's booking identifier. Unique within the authenticated tenant. |
+| `bookingNumber` | string | Yes | Customer's booking identifier. Globally unique across the entire API. |
 | `registrationNumber` | string | Yes | Vehicle registration number. |
 | `customerIdentifier` | string | Yes | Identifier for the customer making the rental. |
 | `category` | string | Yes | `SmallCar`, `Combi`, or `Truck`. |
