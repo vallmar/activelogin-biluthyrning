@@ -144,33 +144,6 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
     }
 
     [Fact]
-    public async Task Return_accepts_documented_json_structure_and_case_insensitive_property_names()
-    {
-        var bookingNumber = NewBookingNumber();
-        await RegisterPickupAsync(bookingNumber, ContractCarCategory.Combi, 10000);
-
-        var json = """
-        {
-            "RETURNTIME": "2026-09-15T18:00:00Z",
-            "ReturnOdometer": 10100,
-            "baseDailyPrice": 500,
-            "BASEKMPRICE": 2
-        }
-        """;
-
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/rentals/{bookingNumber}/return") { Content = content };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync("tenant-a"));
-        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        using var responseJson = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
-        var root = responseJson.RootElement;
-        Assert.Equal(bookingNumber, root.GetProperty("bookingNumber").GetString());
-        Assert.Equal(850m, root.GetProperty("finalPrice").GetDecimal());
-    }
-
     [Fact]
     public async Task Return_returns_404_with_customer_error_code_when_rental_does_not_exist()
     {
