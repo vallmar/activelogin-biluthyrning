@@ -88,14 +88,14 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
     {
         var logSink = new TestLogSink();
         var client = CreateLoggingClient(logSink);
-        var bookingNumber = $"SECURITY-{Guid.NewGuid():N}";
         var pickup = new RegisterPickupRequest(
-            bookingNumber,
             "ABC123",
             "customer-a",
             ContractCarCategory.SmallCar,
             DateTimeOffset.Parse("2026-09-15T10:00:00Z"),
             10000);
+
+        string bookingNumber;
 
         using (var pickupRequest = new HttpRequestMessage(HttpMethod.Post, "/api/rentals/pickup")
         {
@@ -105,6 +105,9 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
             pickupRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync(client, "tenant-a"));
             var pickupResponse = await client.SendAsync(pickupRequest, TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.Created, pickupResponse.StatusCode);
+            var pickupBody = await pickupResponse.Content.ReadFromJsonAsync<RegisterPickupResponse>(TestContext.Current.CancellationToken);
+            Assert.NotNull(pickupBody);
+            bookingNumber = pickupBody!.BookingNumber;
         }
 
         var returnRequest = new RegisterReturnRequest(
