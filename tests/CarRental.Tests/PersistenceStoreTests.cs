@@ -17,10 +17,10 @@ public sealed class PersistenceStoreTests
             var rental = CreateRental();
             var store = new JsonRentalStore(directory);
 
-            await store.CreateAsync(rental);
+            await store.CreateAsync(rental, TestContext.Current.CancellationToken);
 
             var reopenedStore = new JsonRentalStore(directory);
-            var loaded = await reopenedStore.GetAsync(rental.BookingNumber);
+            var loaded = await reopenedStore.GetAsync(rental.BookingNumber, TestContext.Current.CancellationToken);
 
             Assert.NotNull(loaded);
             Assert.Equal(rental.BookingNumber, loaded!.BookingNumber);
@@ -75,7 +75,7 @@ public sealed class PersistenceStoreTests
 
             rental.Return(rental.PickupTime.AddDays(1), rental.PickupOdometer + 100);
             rental.SetFinalPrice(850m);
-            await store.UpdateAsync(rental);
+            await store.UpdateAsync(rental, TestContext.Current.CancellationToken);
 
             Assert.Single(Directory.GetFiles(directory, "*.pickup.pdf"));
             Assert.Single(Directory.GetFiles(directory, "*.return.pdf"));
