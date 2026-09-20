@@ -58,7 +58,6 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
         {
             Content = JsonContent.Create(new
             {
-                bookingNumber = "UNAUTHORIZED-TEST",
                 registrationNumber = "ABC123",
                 customerIdentifier = "customer-a",
                 category = "SmallCar",
