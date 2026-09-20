@@ -180,7 +180,6 @@ app.MapPost("/api/rentals/pickup", async (
     {
         var rental = await service.RegisterPickupAsync(
             tenantId,
-            request.BookingNumber,
             request.RegistrationNumber,
             request.CustomerIdentifier,
             ToDomainCategory(request.Category),
@@ -290,8 +289,7 @@ public partial class Program
 
     private static bool IsValidPickupRequest(RegisterPickupRequest request)
     {
-        return !string.IsNullOrWhiteSpace(request.BookingNumber) &&
-               !string.IsNullOrWhiteSpace(request.RegistrationNumber) &&
+        return !string.IsNullOrWhiteSpace(request.RegistrationNumber) &&
                !string.IsNullOrWhiteSpace(request.CustomerIdentifier) &&
                Enum.IsDefined(request.Category) &&
                request.PickupTime != default &&
