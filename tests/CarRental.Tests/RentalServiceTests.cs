@@ -8,6 +8,7 @@ namespace CarRental.Tests;
 
 public sealed class RentalServiceTests
 {
+    // These tests exercise the application workflow directly. They intentionally use small test doubles for the persistence ports; they do not test private implementation details.
     [Fact]
     public async Task Register_return_calculates_and_persists_final_price()
     {
@@ -43,7 +44,7 @@ public sealed class RentalServiceTests
             "tenant-a", "B-1", "ABC123", "customer-a", CarCategory.SmallCar,
             DateTimeOffset.UtcNow, 10_000, TestContext.Current.CancellationToken);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<BookingNumberAlreadyExistsException>(() =>
             service.RegisterPickupAsync(
                 "tenant-b", "B-1", "XYZ789", "customer-b", CarCategory.Truck,
                 DateTimeOffset.UtcNow, 20_000, TestContext.Current.CancellationToken));
