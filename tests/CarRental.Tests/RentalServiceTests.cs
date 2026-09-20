@@ -16,7 +16,7 @@ public sealed class RentalServiceTests
         var service = new RentalService(new TestStoreResolver(store), new InMemoryBookingNumberRegistry(), new PriceCalculator());
 
         await service.RegisterPickupAsync(
-            "tenant-a", "B-1", "ABC123", "customer-1", CarCategory.Combi,
+            "tenant-a", "ABC123", "customer-1", CarCategory.Combi,
             DateTimeOffset.Parse("2026-01-01T10:00:00+01:00"), 10_000,
             TestContext.Current.CancellationToken);
 
@@ -29,28 +29,6 @@ public sealed class RentalServiceTests
         var rental = await store.GetAsync("B-1", TestContext.Current.CancellationToken);
         Assert.NotNull(rental);
         Assert.Equal(1500m, rental!.FinalPrice);
-    }
-
-    [Fact]
-    public async Task Booking_number_must_be_globally_unique_across_tenants()
-    {
-        var tenantAStore = new InMemoryRentalStore();
-        var tenantBStore = new InMemoryRentalStore();
-        var resolver = new DictionaryStoreResolver(("tenant-a", tenantAStore), ("tenant-b", tenantBStore));
-        var registry = new InMemoryBookingNumberRegistry();
-        var service = new RentalService(resolver, registry, new PriceCalculator());
-
-        await service.RegisterPickupAsync(
-            "tenant-a", "B-1", "ABC123", "customer-a", CarCategory.SmallCar,
-            DateTimeOffset.UtcNow, 10_000, TestContext.Current.CancellationToken);
-
-        await Assert.ThrowsAsync<BookingNumberAlreadyExistsException>(() =>
-            service.RegisterPickupAsync(
-                "tenant-b", "B-1", "XYZ789", "customer-b", CarCategory.Truck,
-                DateTimeOffset.UtcNow, 20_000, TestContext.Current.CancellationToken));
-
-        Assert.NotNull(await tenantAStore.GetAsync("B-1", TestContext.Current.CancellationToken));
-        Assert.Null(await tenantBStore.GetAsync("B-1", TestContext.Current.CancellationToken));
     }
 
     // The resolver/store doubles below are deliberate test seams for the application ports; they avoid testing concrete infrastructure from application tests.
