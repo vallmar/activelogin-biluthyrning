@@ -126,7 +126,6 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal(ErrorCodes.ReturnRentalNotFound, error!.ErrorCode);
         Assert.Equal("The provided input could not be processed.", error.ErrorMessage);
     }
-}
 
     private HttpClient CreateLoggingClient(TestLogSink logSink)
         => factory.WithWebHostBuilder(builder =>
