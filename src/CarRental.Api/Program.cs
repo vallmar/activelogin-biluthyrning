@@ -245,7 +245,7 @@ app.MapPost("/api/rentals/{bookingNumber}/return", async (
 }).RequireAuthorization();
 
 #if DEBUG
-app.MapGet("/api/test/unhandled-error", () => throw new InvalidOperationException("Intentional test exception."))
+app.MapGet("/api/test/unhandled-error", _ => throw new InvalidOperationException("Intentional test exception."))
     .RequireAuthorization();
 #endif
 
