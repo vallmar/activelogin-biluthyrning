@@ -93,11 +93,13 @@ app.MapPost("/send", async (
             using var response = await client.SendAsync(apiRequest, ct);
             var responseText = await response.Content.ReadAsStringAsync(ct);
 
-            return Results.Ok(new SendResponse(
-                (int)response.StatusCode,
-                path,
-                json.RootElement,
-                TryParse(responseText)));
+            return Results.Json(
+                new SendResponse(
+                    (int)response.StatusCode,
+                    path,
+                    json.RootElement,
+                    TryParse(responseText)),
+                statusCode: (int)response.StatusCode);
         }
         catch (HttpRequestException ex)
         {
