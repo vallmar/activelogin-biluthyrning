@@ -23,12 +23,12 @@ The persistence technology is an implementation detail behind the API. Your HTTP
 
 1. Choose **PDF** or **Azure SQL Database**.
 2. If using Azure SQL Database, create the database and schema using section 7.
-3. Give us your database connection string through the agreed secure secret-sharing method — **never commit it to GitHub or send it in source code**.
+3. If you chose Azure SQL Database, give us the connection string through the agreed secure secret-sharing method — **never commit it to GitHub or send it in source code**.
 4. We configure your tenant to use the selected persistence adapter.
 5. Obtain an access token using your production authentication mechanism.
 6. Call the pickup endpoint.
 7. Call the return endpoint.
-8. Run the test suite or review the linked tests in section 10.
+8. Run the test suite or review the linked tests in section 11.
 
 For the repository showcase, `/oauth/token` is a deliberately small demo token issuer. It is **not** the production authentication solution.
 
@@ -164,7 +164,7 @@ The application generates the `bookingNumber`. **Do not send it in the pickup re
 
 ```json
 {
-  "bookingNumber": "TEST-001",
+  "bookingNumber": "R-generated-by-the-application",
   "registrationNumber": "ABC123",
   "customerIdentifier": "customer-a",
   "category": "SmallCar",
