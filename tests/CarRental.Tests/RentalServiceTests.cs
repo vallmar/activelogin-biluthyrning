@@ -53,6 +53,8 @@ public sealed class RentalServiceTests
         Assert.Null(await tenantBStore.GetAsync("B-1"));
     }
 
+    // The resolver/store doubles below are deliberate test seams for the application ports; they avoid testing concrete infrastructure from application tests.
+
     [Fact]
     public async Task Unknown_booking_number_fails_on_return()
     {
