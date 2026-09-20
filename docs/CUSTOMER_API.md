@@ -78,7 +78,6 @@ The currently documented codes are maintained in `src/CarRental.Contracts/ErrorC
 | `AUTH_INVALID_CREDENTIALS` | `401` | The supplied token-endpoint credentials were not accepted. |
 | `AUTH_REQUIRED` | `401` | A valid tenant access token is required. |
 | `PICKUP_INVALID_INPUT` | `400` | The pickup request input was invalid. |
-| `PICKUP_BOOKING_ALREADY_EXISTS` | `400` | The pickup could not be processed because the booking already exists. |
 | `RETURN_INVALID_INPUT` | `400` | The return request input or business state was invalid. |
 | `RETURN_RENTAL_NOT_FOUND` | `404` | The rental could not be found for the authenticated tenant. |
 | `INTERNAL_ERROR` | `500` | An unexpected server-side error occurred. |
@@ -370,7 +369,6 @@ The security log contains internal diagnostic context such as the requesting ten
 | Endpoint | Success | Error codes |
 |---|---:|---|
 | `POST /oauth/token` | `200 OK` | `AUTH_INVALID_CREDENTIALS` |
-| `POST /api/rentals/pickup` | `201 Created` | `PICKUP_INVALID_INPUT`, `PICKUP_BOOKING_ALREADY_EXISTS`, `AUTH_REQUIRED`, `INTERNAL_ERROR` |
-| `POST /api/rentals/{bookingNumber}/return` | `200 OK` | `RETURN_INVALID_INPUT`, `RETURN_RENTAL_NOT_FOUND`, `AUTH_REQUIRED`, `INTERNAL_ERROR` |
+| `POST /api/rentals/pickup` | `201 Created` | `PICKUP_INVALID_INPUT`, | `POST /api/rentals/{bookingNumber}/return` | `200 OK` | `RETURN_INVALID_INPUT`, `RETURN_RENTAL_NOT_FOUND`, `AUTH_REQUIRED`, `INTERNAL_ERROR` |
 
 The stable error-code definitions are in `src/CarRental.Contracts/ErrorCodes.cs`. The customer-facing message text is owned by the API implementation and can change independently of the codes.
