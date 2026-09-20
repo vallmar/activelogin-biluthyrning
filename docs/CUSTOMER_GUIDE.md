@@ -152,7 +152,7 @@ Content-Type: application/json
 
 | Field | Type | Required | Rule |
 |---|---|---:|---|
-| `bookingNumber` | string | Yes | Unique within the authenticated tenant |
+| `bookingNumber` | string | Yes | Globally unique across the entire API |
 | `registrationNumber` | string | Yes | Vehicle registration |
 | `customerIdentifier` | string | Yes | Your customer identifier |
 | `category` | string | Yes | `SmallCar`, `Combi`, or `Truck` |
@@ -240,7 +240,7 @@ Every application-generated error has:
 | `AUTH_INVALID_CREDENTIALS` | 401 | `POST /oauth/token` | Supplied credentials were rejected. |
 | `AUTH_REQUIRED` | 401 | Protected endpoints | A valid bearer token is required. |
 | `PICKUP_INVALID_INPUT` | 400 | Pickup | Pickup input cannot be accepted. |
-| `PICKUP_BOOKING_ALREADY_EXISTS` | 400 | Pickup | Booking already exists for the authenticated tenant. |
+| `PICKUP_BOOKING_ALREADY_EXISTS` | 400 | Pickup | Booking number already exists anywhere in the API. |
 | `RETURN_INVALID_INPUT` | 400 | Return | Return input or rental state cannot be accepted. |
 | `RETURN_RENTAL_NOT_FOUND` | 404 | Return | No rental accessible to the authenticated tenant exists for the booking. |
 | `INTERNAL_ERROR` | 500 | Any endpoint | Unexpected server-side failure. Details are not exposed to the customer. |
@@ -249,7 +249,7 @@ Unknown future error codes must be handled as an unknown error rather than causi
 
 Framework-level failures, such as malformed JSON, may be rejected before an application handler creates an `errorCode`. For this reason the HTTP status code is always the first level of error handling.
 
-A 404 on return is deliberately used both when the booking does not exist and when it belongs to another tenant. This prevents the API from disclosing another customer's data.
+A 404 on return is deliberately used both when the booking does not exist and when it is not accessible to the authenticated tenant. This prevents the API from disclosing another customer's data.
 
 ---
 
@@ -383,7 +383,7 @@ CREATE TABLE dbo.Rentals
 );
 ```
 
-The composite primary key deliberately makes the booking unique **per tenant**, matching the API's tenant isolation model.
+The database uses `BookingNumber` as the global primary key. Tenant isolation is enforced separately by `TenantId`; a booking number can therefore never be reused by another customer.
 
 Add an index if your application frequently searches by vehicle:
 
