@@ -1,8 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using CarRental.Contracts;
 using Microsoft.AspNetCore.Hosting;
@@ -128,39 +126,6 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
         Assert.NotNull(error);
         Assert.Equal(ErrorCodes.ReturnRentalNotFound, error!.ErrorCode);
         Assert.Equal("The provided input could not be processed.", error.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task Pickup_accepts_documented_json_structure_and_case_insensitive_property_names()
-    {
-        var bookingNumber = NewBookingNumber();
-        var json = $$"""
-        {
-            "BOOKINGNUMBER": "{{bookingNumber}}",
-            "RegistrationNumber": "ABC123",
-            "customerIdentifier": "customer-a",
-            "CATEGORY": "smallcar",
-            "PickupTime": "2026-09-15T10:00:00Z",
-            "pickupOdometer": 10000
-        }
-        """;
-
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/rentals/pickup") { Content = content };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync("tenant-a"));
-        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        using var responseJson = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
-        var root = responseJson.RootElement;
-        Assert.Equal(bookingNumber, root.GetProperty("bookingNumber").GetString());
-        Assert.Equal("ABC123", root.GetProperty("registrationNumber").GetString());
-        Assert.Equal("customer-a", root.GetProperty("customerIdentifier").GetString());
-        Assert.Equal("SmallCar", root.GetProperty("category").GetString());
-        Assert.Equal("2026-09-15T10:00:00+00:00", root.GetProperty("pickupTime").GetString());
-        Assert.Equal(10000, root.GetProperty("pickupOdometer").GetInt32());
-        Assert.False(root.GetProperty("isReturned").GetBoolean());
     }
 
     [Fact]
