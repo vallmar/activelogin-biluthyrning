@@ -312,7 +312,6 @@ public partial class Program
             [ErrorCodes.AuthenticationInvalidCredentials] = "The supplied credentials were invalid.",
             [ErrorCodes.AuthenticationRequired] = "A valid tenant access token is required.",
             [ErrorCodes.PickupInvalidInput] = "The provided input was invalid.",
-            [ErrorCodes.PickupBookingAlreadyExists] = "The provided input could not be processed.",
             [ErrorCodes.ReturnInvalidInput] = "The provided input was invalid.",
             [ErrorCodes.ReturnRentalNotFound] = "The provided input could not be processed.",
             [ErrorCodes.InternalError] = "An unexpected error occurred."
