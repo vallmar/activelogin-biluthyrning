@@ -66,13 +66,13 @@ This file records decisions that explain why the project is structured the way i
 
 **Consequence:** This is not production authentication infrastructure. A real deployment would use an external OAuth 2.0/OIDC identity provider and the API would validate tokens issued by that provider.
 
-## ADR-009: Tenant-specific persistence is resolved at runtime
+## ADR-009: PDF is the shipped persistence reference
 
-**Decision:** The Application layer depends on `IRentalStore`, while `IRentalStoreResolver` selects a store implementation for the authenticated tenant. The reference implementation supports JSON and PDF providers.
+**Decision:** The repository ships PDF persistence as its concrete rental-store implementation. Azure SQL is documented as the second customer-facing reference contract, while PostgreSQL, SQL Server, S3, ERP and other technologies are customer-specific integrations behind `IRentalStore`.
 
-**Why:** Different customers may have materially different persistence requirements. The SaaS should support those differences without coupling the Domain or Application service to PostgreSQL, SQL Server, JSON, PDF, or a customer's ERP.
+**Why:** PDF gives the showcase a concrete, inspectable persistence implementation while keeping the application independent of a particular database vendor. Azure SQL demonstrates the relational customer contract without pretending that a live customer database is provisioned by this repository.
 
-**Consequence:** Adding a customer-specific persistence integration means implementing `IRentalStore`, registering the provider and configuring the tenant. The core rental model and API do not change. Customer applications may still own their own local persistence independently.
+**Consequence:** New customer persistence requires a separate adapter, tests and tenant configuration. The core rental model and API do not change.
 
 ## ADR-010: Use a simple daily file logger for the showcase
 
