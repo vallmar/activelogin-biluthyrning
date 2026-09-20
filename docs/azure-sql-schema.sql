@@ -17,7 +17,7 @@ CREATE TABLE dbo.Rentals
     FinalPrice          decimal(18, 2) NULL,
 
     CONSTRAINT PK_Rentals
-        PRIMARY KEY (TenantId, BookingNumber),
+        PRIMARY KEY (BookingNumber),
 
     CONSTRAINT CK_Rentals_PickupOdometer
         CHECK (PickupOdometer >= 0),
