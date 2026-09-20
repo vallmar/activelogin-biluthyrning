@@ -5,12 +5,14 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CarRental.Contracts;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace CarRental.Tests;
 
-public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
 {
     private static readonly JsonSerializerOptions CustomerJsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -19,7 +21,7 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
 
     private readonly HttpClient client;
 
-    public ApiIntegrationTests(WebApplicationFactory<Program> factory)
+    public ApiIntegrationTests(ApiTestFactory factory)
     {
         client = factory.CreateClient();
     }
@@ -95,7 +97,7 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
-    public async Task Same_booking_number_can_exist_in_different_tenants()
+    public async Task Same_booking_number_is_rejected_across_different_tenants()
     {
         var bookingNumber = NewBookingNumber();
         var request = new RegisterPickupRequest(bookingNumber, "ABC123", "customer-a", ContractCarCategory.SmallCar, DateTimeOffset.Parse("2026-09-15T10:00:00Z"), 10000);
@@ -104,7 +106,11 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         var tenantBResponse = await PostAsCustomerJsonAsync("/api/rentals/pickup", request, "tenant-b");
 
         Assert.Equal(HttpStatusCode.Created, tenantAResponse.StatusCode);
-        Assert.Equal(HttpStatusCode.Created, tenantBResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, tenantBResponse.StatusCode);
+
+        var error = await ReadCustomerJsonAsync<ErrorResponse>(tenantBResponse);
+        Assert.NotNull(error);
+        Assert.Equal(ErrorCodes.PickupBookingAlreadyExists, error!.ErrorCode);
     }
 
     [Fact]
@@ -297,4 +303,29 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         => response.Content.ReadFromJsonAsync<T>(CustomerJsonOptions);
 
     private static string NewBookingNumber() => $"TEST-{Guid.NewGuid():N}";
+}
+
+
+public sealed class ApiTestFactory : WebApplicationFactory<Program>
+{
+    private readonly string dataDirectory = Path.Combine(Path.GetTempPath(), "CarRentalApiTests", Guid.NewGuid().ToString("N"));
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureAppConfiguration((_, configuration) =>
+        {
+            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Persistence:RootDirectory"] = dataDirectory
+            });
+        });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+
+        if (disposing && Directory.Exists(dataDirectory))
+            Directory.Delete(dataDirectory, recursive: true);
+    }
 }
