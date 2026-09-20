@@ -139,7 +139,7 @@ For example:
   "Persistence": {
     "Tenants": {
       "tenant-a": { "Provider": "pdf" },
-      "tenant-b": { "Provider": "json" }
+      "tenant-b": { "Provider": "azure-sql" }
     }
   }
 }
