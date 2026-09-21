@@ -99,7 +99,7 @@ app.MapPost("/send", async (
                 new SendResponse(
                     (int)response.StatusCode,
                     path,
-                    json.RootElement,
+                    json.RootElement.Clone(),
                     TryParse(responseText)),
                 statusCode: (int)response.StatusCode);
         }
