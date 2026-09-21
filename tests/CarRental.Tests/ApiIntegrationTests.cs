@@ -135,7 +135,7 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
         Assert.Equal(HttpStatusCode.BadRequest, secondResponse.StatusCode);
         var error = await ReadCustomerJsonAsync<ErrorResponse>(secondResponse);
         Assert.NotNull(error);
-        Assert.Equal(ErrorCodes.ReturnInvalidInput, error!.ErrorCode);
+        Assert.Equal(ErrorCodes.ReturnAlreadyReturned, error!.ErrorCode);
         Assert.Equal("Rental has already been returned.", error.ErrorMessage);
     }
 
@@ -149,8 +149,8 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = await ReadCustomerJsonAsync<ErrorResponse>(response);
         Assert.NotNull(error);
-        Assert.Equal(ErrorCodes.ReturnInvalidInput, error!.ErrorCode);
-        Assert.Equal("The provided input was invalid.", error.ErrorMessage);
+        Assert.Equal(ErrorCodes.ReturnTimeBeforePickup, error!.ErrorCode);
+        Assert.Equal("Return time cannot be before pickup time.", error.ErrorMessage);
     }
 
     [Fact]
@@ -163,8 +163,8 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = await ReadCustomerJsonAsync<ErrorResponse>(response);
         Assert.NotNull(error);
-        Assert.Equal(ErrorCodes.ReturnInvalidInput, error.ErrorCode);
-        Assert.Equal("The provided input was invalid.", error.ErrorMessage);
+        Assert.Equal(ErrorCodes.ReturnOdometerBeforePickup, error.ErrorCode);
+        Assert.Equal("Return odometer cannot be lower than pickup odometer.", error.ErrorMessage);
     }
 
     private async Task<string> RegisterPickupAsync(ContractCarCategory category, int odometer, string tenantId = "tenant-a")
