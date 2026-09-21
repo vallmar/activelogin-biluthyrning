@@ -81,3 +81,19 @@ This file records decisions that explain why the project is structured the way i
 **Why:** The project needs observable failures without adding Serilog, OpenTelemetry, Application Insights, or another external logging platform. A daily file is enough to inspect local behaviour and demonstrate that operational logging exists.
 
 **Consequence:** The logger is intentionally small and not a production logging solution. The `.log/` directory is ignored by source control. A production deployment could replace the provider while keeping the `ILogger` abstraction unchanged.
+
+## ADR-011: Generate booking numbers at pickup
+
+**Decision:** The SaaS application generates the booking number when a pickup is registered and returns it to the customer. Customers do not send a booking number in the pickup JSON; they use the returned value for subsequent operations such as return.
+
+**Why:** The specification requires a unique booking number but does not define whether it is caller-supplied or system-generated. Generating it at the application boundary makes uniqueness a system invariant and avoids making the customer responsible for allocating identifiers.
+
+**Consequence:** The pickup request contains the vehicle, customer, category, pickup time and odometer only. The generated booking number is part of the pickup response and return URL.
+
+## ADR-012: Stable error codes for known return business rules
+
+**Decision:** Known return business-rule failures have dedicated stable error codes, while errorMessage remains human-readable.
+
+**Why:** Customer integrations should branch on machine-readable codes rather than parse message text.
+
+**Consequence:** Returning an already returned rental, returning before pickup time, and returning with a lower odometer each have their own documented HTTP 400 error code and integration test coverage.
