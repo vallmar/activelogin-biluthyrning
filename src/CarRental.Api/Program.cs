@@ -242,6 +242,27 @@ app.MapPost("/api/rentals/{bookingNumber}/return", async (
             ErrorCodes.ReturnRentalNotFound,
             Program.GetErrorMessage(ErrorCodes.ReturnRentalNotFound)));
     }
+    catch (RentalAlreadyReturnedException ex)
+    {
+        app.Logger.LogWarning(ex, "Rental has already been returned for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
+        return Results.BadRequest(new ErrorResponse(
+            ErrorCodes.ReturnAlreadyReturned,
+            ex.Message));
+    }
+    catch (ReturnTimeBeforePickupException ex)
+    {
+        app.Logger.LogWarning(ex, "Return time is before pickup time for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
+        return Results.BadRequest(new ErrorResponse(
+            ErrorCodes.ReturnTimeBeforePickup,
+            ex.Message));
+    }
+    catch (ReturnOdometerBeforePickupException ex)
+    {
+        app.Logger.LogWarning(ex, "Return odometer is before pickup odometer for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
+        return Results.BadRequest(new ErrorResponse(
+            ErrorCodes.ReturnOdometerBeforePickup,
+            ex.Message));
+    }
     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
     {
         app.Logger.LogWarning(ex, "Invalid return request input for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
@@ -313,6 +334,9 @@ public partial class Program
             [ErrorCodes.AuthenticationRequired] = "A valid tenant access token is required.",
             [ErrorCodes.PickupInvalidInput] = "The provided input was invalid.",
             [ErrorCodes.ReturnInvalidInput] = "The provided input was invalid.",
+            [ErrorCodes.ReturnAlreadyReturned] = "Rental has already been returned.",
+            [ErrorCodes.ReturnTimeBeforePickup] = "Return time cannot be before pickup time.",
+            [ErrorCodes.ReturnOdometerBeforePickup] = "Return odometer cannot be lower than pickup odometer.",
             [ErrorCodes.ReturnRentalNotFound] = "The provided input could not be processed.",
             [ErrorCodes.InternalError] = "An unexpected error occurred."
         };
