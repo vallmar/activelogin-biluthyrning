@@ -154,6 +154,16 @@ function load(name) {
 document.querySelectorAll(".template").forEach(button =>
   button.addEventListener("click", () => load(button.dataset.name)));
 
+// Keep the editable body aligned with the selected API operation. This prevents
+// accidentally sending a pickup payload to the return endpoint when the method
+// dropdown is changed manually.
+method.addEventListener("change", () => {
+  const currentBooking = booking.value.trim();
+  load(method.value === "pickup" ? "Successful pickup" : "Successful return");
+  if (currentBooking && method.value === "return")
+    booking.value = currentBooking;
+});
+
 $("#send").addEventListener("click", async () => {
   let parsed;
   try {
