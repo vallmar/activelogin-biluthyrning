@@ -11,6 +11,9 @@ public static class ErrorCodes
     public const string AuthenticationRequired = "AUTH_REQUIRED";
     public const string PickupInvalidInput = "PICKUP_INVALID_INPUT";
     public const string ReturnInvalidInput = "RETURN_INVALID_INPUT";
+    public const string ReturnAlreadyReturned = "RETURN_ALREADY_RETURNED";
+    public const string ReturnTimeBeforePickup = "RETURN_TIME_BEFORE_PICKUP";
+    public const string ReturnOdometerBeforePickup = "RETURN_ODOMETER_BEFORE_PICKUP";
     public const string ReturnRentalNotFound = "RETURN_RENTAL_NOT_FOUND";
     public const string InternalError = "INTERNAL_ERROR";
 }
