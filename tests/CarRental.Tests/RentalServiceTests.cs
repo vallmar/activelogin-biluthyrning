@@ -33,6 +33,26 @@ public sealed class RentalServiceTests
 
     // The resolver/store doubles below are deliberate test seams for the application ports; they avoid testing concrete infrastructure from application tests.
 
+
+    [Fact]
+    public async Task Generated_booking_numbers_are_unique_across_tenants()
+    {
+        var store = new InMemoryRentalStore();
+        var registry = new InMemoryBookingNumberRegistry();
+        var service = new RentalService(new TestStoreResolver(store), registry, new PriceCalculator());
+
+        var first = await service.RegisterPickupAsync(
+            "tenant-a", "ABC123", "customer-a", CarCategory.SmallCar,
+            DateTimeOffset.Parse("2026-01-01T10:00:00+01:00"), 10_000,
+            TestContext.Current.CancellationToken);
+        var second = await service.RegisterPickupAsync(
+            "tenant-b", "XYZ789", "customer-b", CarCategory.Truck,
+            DateTimeOffset.Parse("2026-01-01T11:00:00+01:00"), 20_000,
+            TestContext.Current.CancellationToken);
+
+        Assert.NotEqual(first.BookingNumber, second.BookingNumber);
+    }
+
     [Fact]
     public async Task Unknown_booking_number_fails_on_return()
     {
