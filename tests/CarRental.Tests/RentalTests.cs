@@ -10,14 +10,15 @@ public class RentalTests
     {
         var rental = CreateRental();
         rental.Return(rental.PickupTime.AddDays(1), rental.PickupOdometer + 10);
-        Assert.Throws<InvalidOperationException>(() => rental.Return(rental.PickupTime.AddDays(2), rental.PickupOdometer + 20));
+        var exception = Assert.Throws<RentalAlreadyReturnedException>(() => rental.Return(rental.PickupTime.AddDays(2), rental.PickupOdometer + 20));
+        Assert.Equal("Rental has already been returned.", exception.Message);
     }
 
     [Fact]
     public void Return_odometer_cannot_be_lower_than_pickup_odometer()
     {
         var rental = CreateRental();
-        var exception = Assert.Throws<ArgumentException>(() => rental.Return(rental.PickupTime.AddDays(1), rental.PickupOdometer - 1));
+        var exception = Assert.Throws<ReturnOdometerBeforePickupException>(() => rental.Return(rental.PickupTime.AddDays(1), rental.PickupOdometer - 1));
         Assert.Equal("Return odometer cannot be lower than pickup odometer.", exception.Message);
     }
 
@@ -25,7 +26,8 @@ public class RentalTests
     public void Return_time_cannot_be_before_pickup()
     {
         var rental = CreateRental();
-        Assert.Throws<ArgumentException>(() => rental.Return(rental.PickupTime.AddMinutes(-1), rental.PickupOdometer));
+        var exception = Assert.Throws<ReturnTimeBeforePickupException>(() => rental.Return(rental.PickupTime.AddMinutes(-1), rental.PickupOdometer));
+        Assert.Equal("Return time cannot be before pickup time.", exception.Message);
     }
 
     [Fact]
