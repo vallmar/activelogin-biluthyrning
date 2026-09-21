@@ -75,7 +75,7 @@ app.MapPost("/send", async (
             var token = JsonSerializer.Deserialize<TokenResponse>(tokenBody, jsonOptions);
             if (string.IsNullOrWhiteSpace(token?.AccessToken))
             {
-                return Results.Problem(\n                    detail: "The rental API returned a successful token response, but the access token could not be read.",\n                    statusCode: StatusCodes.Status502BadGateway);
+                return Results.Problem("The rental API returned a successful token response, but the access token could not be read.", statusCode: StatusCodes.Status502BadGateway);
             }
 
             var path = request.Method == "pickup"
