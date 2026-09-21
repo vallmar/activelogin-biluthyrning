@@ -136,7 +136,7 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiTestFactory>
         var error = await ReadCustomerJsonAsync<ErrorResponse>(secondResponse);
         Assert.NotNull(error);
         Assert.Equal(ErrorCodes.ReturnInvalidInput, error!.ErrorCode);
-        Assert.Equal("The provided input was invalid.", error.ErrorMessage);
+        Assert.Equal("Rental has already been returned.", error.ErrorMessage);
     }
 
     [Fact]
