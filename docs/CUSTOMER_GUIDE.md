@@ -183,7 +183,7 @@ Registers a return and calculates the final price.
 ### Request
 
 ```http
-POST /api/rentals/TEST-001/return
+POST /api/rentals/R-generated-by-the-application/return
 Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
@@ -213,7 +213,7 @@ Content-Type: application/json
 
 ```json
 {
-  "bookingNumber": "TEST-001",
+  "bookingNumber": "R-generated-by-the-application",
   "finalPrice": 1000
 }
 ```
