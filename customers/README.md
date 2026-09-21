@@ -4,7 +4,7 @@ These projects intentionally represent customers rather than parts of the SaaS c
 
 Both examples integrate through the public HTTP API and obtain a JWT access token from the showcase `/oauth/token` endpoint before calling rental endpoints.
 
-## Customer A — PDF
+## Customer A — PDFf
 
 `CustomerA.PdfConsole` demonstrates the PDF persistence reference choice.
 
