@@ -144,7 +144,10 @@ Always check the HTTP status first and then inspect the stable `errorCode`.
 | `AUTH_INVALID_CREDENTIALS` | 401 | Authentication credentials were rejected. |
 | `AUTH_REQUIRED` | 401 | A valid bearer token is required. |
 | `PICKUP_INVALID_INPUT` | 400 | Pickup input cannot be accepted. |
-| `RETURN_INVALID_INPUT` | 400 | Return input or rental state cannot be accepted. |
+| `RETURN_INVALID_INPUT` | 400 | Return request input is structurally invalid. |
+| `RETURN_ALREADY_RETURNED` | 400 | The rental has already been returned. |
+| `RETURN_TIME_BEFORE_PICKUP` | 400 | The return time is before the pickup time. |
+| `RETURN_ODOMETER_BEFORE_PICKUP` | 400 | The return odometer is below the pickup odometer. |
 | `RETURN_RENTAL_NOT_FOUND` | 404 | No rental accessible to the authenticated tenant exists for the booking. |
 | `INTERNAL_ERROR` | 500 | Unexpected server-side failure. |
 
