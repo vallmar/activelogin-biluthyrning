@@ -247,7 +247,7 @@ app.MapPost("/api/rentals/{bookingNumber}/return", async (
         app.Logger.LogWarning(ex, "Invalid return request input for {HttpMethod} {Path}", "POST", $"/api/rentals/{bookingNumber}/return");
         return Results.BadRequest(new ErrorResponse(
             ErrorCodes.ReturnInvalidInput,
-            Program.GetErrorMessage(ErrorCodes.ReturnInvalidInput)));
+            ex.Message));
     }
 }).RequireAuthorization();
 
