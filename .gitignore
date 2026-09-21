@@ -2,7 +2,6 @@
 [Bb]in/
 [Oo]bj/
 
-/customers
 # Visual Studio / Rider / VS Code user files
 .vs/
 .idea/
