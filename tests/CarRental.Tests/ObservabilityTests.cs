@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using CarRental.Contracts;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -104,7 +106,7 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
             pickupRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync(client, "tenant-a"));
             var pickupResponse = await client.SendAsync(pickupRequest, TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.Created, pickupResponse.StatusCode);
-            var pickupBody = await pickupResponse.Content.ReadFromJsonAsync<RegisterPickupResponse>(TestContext.Current.CancellationToken);
+            var pickupBody = await pickupResponse.Content.ReadFromJsonAsync<RegisterPickupResponse>(JsonOptions, TestContext.Current.CancellationToken);
             Assert.NotNull(pickupBody);
             bookingNumber = pickupBody!.BookingNumber;
         }
@@ -139,6 +141,11 @@ public sealed class ObservabilityTests : IClassFixture<WebApplicationFactory<Pro
                 logging.AddProvider(new TestLoggerProvider(logSink));
             });
         }).CreateClient();
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
 
     private static async Task<string> GetAccessTokenAsync(HttpClient client, string tenantId)
     {
